@@ -5,12 +5,13 @@ import { pathToFileURL } from "node:url";
 import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 
 const base = dirname(fileURLToPath(import.meta.url));
 const e2eCwd = resolve(tmpdir(), `allcli-e2e-test-${randomUUID()}`);
 
-let ctx: any;
-let srv: any;
+let ctx: unknown;
+let srv: unknown;
 const port = 3583;
 
 function apiUrl(pathname: string) {
@@ -51,6 +52,14 @@ describe("API Server E2E", function () {
       "    perProject: 100",
     ].join("\n"));
 
+    // Initialize git repo for worktree support
+    execFileSync("git", ["init"], { cwd: e2eCwd, encoding: "utf8" });
+    execFileSync("git", ["config", "user.email", "test@allcli.dev"], { cwd: e2eCwd, encoding: "utf8" });
+    execFileSync("git", ["config", "user.name", "Test"], { cwd: e2eCwd, encoding: "utf8" });
+    writeFileSync(resolve(e2eCwd, ".gitkeep"), "");
+    execFileSync("git", ["add", ".gitkeep"], { cwd: e2eCwd, encoding: "utf8" });
+    execFileSync("git", ["commit", "-m", "init"], { cwd: e2eCwd, encoding: "utf8" });
+
     const ctxMod = await import(pathToFileURL(resolve(base, "../dist/commands/context.js")).href);
     const apiMod = await import(pathToFileURL(resolve(base, "../dist/api-server.js")).href);
     ctx = ctxMod.createCliContext(e2eCwd);
@@ -89,8 +98,8 @@ describe("API Server E2E", function () {
   it("completed tasks have token usage data when present", async function () {
     var res = await fetch(apiUrl("/api/tasks"));
     var data = await res.json();
-    var completed = data.filter(function (t: any) { return t.result !== undefined; });
-    completed.forEach(function (task: any) {
+    var completed = data.filter(function (t: Record<string, unknown>) { return t.result !== undefined; });
+    completed.forEach(function (task: Record<string, unknown>) {
       expect(task.result.tokensUsed).toBeGreaterThan(0);
       expect(task.result.duration).toBeGreaterThan(0);
       expect(typeof task.result.success).toBe("boolean");

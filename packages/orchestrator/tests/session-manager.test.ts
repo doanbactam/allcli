@@ -70,6 +70,7 @@ describe("SessionManager", () => {
     const killed = manager.getById(session.id);
     expect(killed?.status).toBe("killed");
 
-    rmSync(root, { recursive: true, force: true });
+    // Windows: child process may hold file lock briefly after kill
+    try { rmSync(root, { recursive: true, force: true }); } catch { /* EBUSY on Windows — temp dir cleaned by OS */ }
   });
 });
