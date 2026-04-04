@@ -25,8 +25,8 @@ export class CostTracker {
   }
 
   getSessionCost(sessionId: string): CostReport {
-    const entry = this.entries.find((e) => e.sessionId === sessionId);
-    if (!entry) {
+    const entries = this.entries.filter((e) => e.sessionId === sessionId);
+    if (entries.length === 0) {
       return {
         totalTokens: 0,
         inputTokens: 0,
@@ -35,7 +35,16 @@ export class CostTracker {
         currency: "USD"
       };
     }
-    return entry.report;
+    return entries.reduce<CostReport>(
+      (acc, e) => ({
+        totalTokens: acc.totalTokens + e.report.totalTokens,
+        inputTokens: acc.inputTokens + e.report.inputTokens,
+        outputTokens: acc.outputTokens + e.report.outputTokens,
+        estimatedCost: acc.estimatedCost + e.report.estimatedCost,
+        currency: "USD" as const,
+      }),
+      { totalTokens: 0, inputTokens: 0, outputTokens: 0, estimatedCost: 0, currency: "USD" as const }
+    );
   }
 
   getProjectCost(): CostReport {
@@ -56,16 +65,12 @@ export class CostTracker {
     const sessionCost = this.getSessionCost(sessionId).estimatedCost;
     const projectCost = this.getProjectCost().estimatedCost;
 
-    const used = sessionCost + projectCost;
-    const remaining = this.sessionLimit - sessionCost;
-    const percentUsed = this.sessionLimit > 0 ? Math.round((sessionCost / this.sessionLimit) * 100) : 0;
-
     return {
       withinBudget: sessionCost <= this.sessionLimit && projectCost <= this.projectLimit,
-      used,
+      used: sessionCost,
       limit: this.sessionLimit,
-      remaining: Math.max(0, remaining),
-      percentUsed
+      remaining: Math.max(0, this.sessionLimit - sessionCost),
+      percentUsed: this.sessionLimit > 0 ? Math.round((sessionCost / this.sessionLimit) * 100) : 0,
     };
   }
 }
