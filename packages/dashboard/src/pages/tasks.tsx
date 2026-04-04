@@ -13,30 +13,22 @@ const columns: { status: ApiTaskStatus; label: string; icon: React.ComponentType
   { status: "failed", label: "Failed", icon: XCircle },
 ];
 
-const columnAccent: Record<ApiTaskStatus, string> = {
-  pending: "border-t-warning/50",
-  in_progress: "border-t-primary/50",
-  blocked: "border-t-danger/50",
-  completed: "border-t-success/50",
-  failed: "border-t-danger/50",
-};
-
-const headerColor: Record<ApiTaskStatus, string> = {
-  pending: "text-warning",
-  in_progress: "text-primary",
-  blocked: "text-danger",
-  completed: "text-success",
-  failed: "text-danger",
+const dotColor: Record<ApiTaskStatus, string> = {
+  pending: "bg-warning",
+  in_progress: "bg-primary",
+  blocked: "bg-danger",
+  completed: "bg-success",
+  failed: "bg-danger",
 };
 
 function TaskCardSkeleton() {
   return (
-    <div className="rounded-lg border border-border bg-background/40 p-3">
-      <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
-      <div className="mt-2 h-3 w-full animate-pulse rounded bg-muted/60" />
-      <div className="mt-3 flex justify-between">
-        <div className="h-3 w-20 animate-pulse rounded bg-muted/60" />
-        <div className="h-5 w-10 animate-pulse rounded bg-muted/60" />
+    <div className="border border-border/50 bg-surface-0 px-2.5 py-2">
+      <div className="h-3 w-3/4 animate-pulse rounded bg-surface-2" />
+      <div className="mt-1.5 h-2.5 w-full animate-pulse rounded bg-surface-2" />
+      <div className="mt-2 flex justify-between">
+        <div className="h-2.5 w-16 animate-pulse rounded bg-surface-2" />
+        <div className="h-4 w-8 animate-pulse rounded bg-surface-2" />
       </div>
     </div>
   );
@@ -45,16 +37,16 @@ function TaskCardSkeleton() {
 function PriorityBadge({ priority }: { priority: number }) {
   const level = priority >= 8 ? "high" : priority >= 4 ? "medium" : "low";
   const colors = {
-    high: "bg-danger/15 text-danger border-danger/30",
-    medium: "bg-warning/15 text-warning border-warning/30",
-    low: "bg-muted/50 text-muted-foreground border-border",
+    high: "bg-danger/10 text-danger",
+    medium: "bg-warning/10 text-warning",
+    low: "bg-surface-2 text-subtext",
   };
 
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-        colors[level]
+        "inline-flex items-center px-1 py-px text-[9px] font-bold tabular-nums",
+        colors[level],
       )}
     >
       P{priority}
@@ -86,29 +78,19 @@ export function TasksPage() {
   }, [tasks]);
 
   return (
-    <div className="flex flex-col gap-6 animate-fade-in">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-xl font-bold tracking-tight text-balance">Tasks</h1>
-        <p className="text-sm text-muted-foreground text-pretty">
-          Kanban view of the AI execution pipeline across repositories and agents.
-        </p>
-      </header>
-
+    <div className="flex flex-col gap-3 animate-fade-in">
       {isLoading && (
-        <section className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+        <section className="grid grid-cols-5 gap-2">
           {columns.map((column) => (
             <div
               key={column.status}
-              className={cn(
-                "flex min-h-80 flex-col gap-3 rounded-xl border border-t-2 bg-card p-4",
-                columnAccent[column.status]
-              )}
+              className="flex min-h-60 flex-col border border-border bg-surface-1"
             >
-              <div className="flex items-center justify-between">
-                <div className="h-4 w-20 animate-pulse rounded bg-muted" />
-                <div className="h-4 w-6 animate-pulse rounded bg-muted" />
+              <div className="flex items-center justify-between border-b border-border px-2 py-1">
+                <div className="h-3 w-16 animate-pulse rounded bg-surface-2" />
+                <div className="h-3 w-4 animate-pulse rounded bg-surface-2" />
               </div>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5 p-1.5">
                 <TaskCardSkeleton />
                 <TaskCardSkeleton />
               </div>
@@ -118,67 +100,64 @@ export function TasksPage() {
       )}
 
       {hasError && (
-        <div className="flex items-center justify-center rounded-xl border border-danger/30 bg-danger/5 py-12 text-sm text-danger">
+        <div className="flex items-center gap-2 border border-danger/30 bg-danger/5 px-3 py-3 text-xs text-danger">
+          <span className="size-1.5 rounded-full bg-danger" />
           Failed to load tasks. Retrying...
         </div>
       )}
 
       {!isLoading && !hasError && tasks.length === 0 && (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border/60 bg-card/40 py-16 text-center">
-          <div className="flex size-14 items-center justify-center rounded-full bg-muted/50">
-            <ListTodo className="size-6 text-muted-foreground" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">No tasks yet</p>
-            <p className="text-xs text-muted-foreground">
-              Create a task to start tracking execution progress.
-            </p>
+        <div className="flex flex-col items-center justify-center gap-2 border border-border bg-surface-1 py-8">
+          <ListTodo className="size-4 text-subtext" />
+          <div className="flex flex-col gap-0.5 text-center">
+            <p className="text-xs text-foreground">No tasks yet</p>
+            <p className="text-[10px] text-subtext">Create a task to start tracking execution progress.</p>
           </div>
         </div>
       )}
 
       {!isLoading && !hasError && tasks.length > 0 && (
-        <section className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+        <section className="grid grid-cols-5 gap-2">
           {columnsWithTasks.map((column) => {
-            const Icon = column.icon;
             return (
               <div
                 key={column.status}
-                className={cn(
-                  "flex min-h-80 flex-col gap-3 rounded-xl border border-t-2 bg-card p-4",
-                  columnAccent[column.status]
-                )}
+                className="flex min-h-60 flex-col border border-border bg-surface-1"
               >
-                <div className="flex items-center justify-between border-b border-border/50 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Icon className={cn("size-4", headerColor[column.status])} />
-                    <h2 className="text-sm font-semibold">{column.label}</h2>
+                {/* Column header */}
+                <div className="flex items-center justify-between border-b border-border px-2 py-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className={cn("size-1.5 rounded-full", dotColor[column.status])} />
+                    <span className="text-[11px] font-medium text-foreground">{column.label}</span>
                   </div>
-                  <span className="flex size-5 items-center justify-center rounded-full bg-muted/50 text-[10px] font-bold tabular-nums">
+                  <span className="text-[10px] font-bold tabular-nums text-subtext">
                     {column.tasks.length}
                   </span>
                 </div>
 
-                <div className="flex flex-1 flex-col gap-2 overflow-y-auto">
+                {/* Task cards */}
+                <div className="flex flex-1 flex-col gap-1 overflow-y-auto p-1.5">
                   {column.tasks.length === 0 ? (
-                    <div className="flex flex-1 items-center justify-center py-8">
-                      <span className="text-xs text-muted-foreground/50">No tasks</span>
+                    <div className="flex flex-1 items-center justify-center py-4">
+                      <span className="text-[10px] text-subtext/40">Empty</span>
                     </div>
                   ) : (
                     column.tasks.map((task) => (
                       <article
                         key={task.id}
-                        className="rounded-lg border border-border/50 bg-background/60 p-3 transition-colors hover:border-border hover:bg-background/80"
+                        className="border border-border/50 bg-surface-0 px-2.5 py-2 transition-colors hover:border-border hover:bg-surface-0/80"
                       >
-                        <h3 className="text-sm font-medium line-clamp-2">{task.title}</h3>
+                        <h3 className="text-[11px] font-medium leading-tight text-foreground line-clamp-2">
+                          {task.title}
+                        </h3>
                         {task.description && (
-                          <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2">
+                          <p className="mt-1 text-[10px] leading-tight text-subtext line-clamp-2">
                             {task.description}
                           </p>
                         )}
-                        <div className="mt-3 flex items-center justify-between gap-2">
-                          <span className="max-w-[100px] truncate text-xs text-muted-foreground">
-                            {task.assignedAgent ?? "Unassigned"}
+                        <div className="mt-2 flex items-center justify-between gap-1">
+                          <span className="max-w-[80px] truncate text-[10px] text-subtext font-mono">
+                            {task.assignedAgent ?? "---"}
                           </span>
                           <PriorityBadge priority={task.priority} />
                         </div>

@@ -5,10 +5,13 @@ import {
   LayoutDashboard,
   ListTodo,
   Menu,
-  X,
+  ChevronRight,
+  Terminal,
+  Wifi,
 } from "lucide-react";
-import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
+import { BrowserRouter, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { createContext, useCallback, useContext, useState } from "react";
+import { Agentation } from "agentation";
 import { cn } from "@/lib/utils";
 import { AgentsPage } from "@/pages/agents";
 import { CostsPage } from "@/pages/costs";
@@ -23,7 +26,7 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/", label: "Explorer", icon: LayoutDashboard },
   { to: "/agents", label: "Agents", icon: Bot },
   { to: "/tasks", label: "Tasks", icon: ListTodo },
   { to: "/review", label: "Review", icon: Code2 },
@@ -48,25 +51,145 @@ function useSidebar() {
   return context;
 }
 
+/** Breadcrumb-style title bar above content area */
+function TitleBar() {
+  const location = useLocation();
+  const currentNav = navItems.find((item) =>
+    item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to),
+  );
+
+  const segments = [
+    { label: "AllCLI", active: false },
+    { label: currentNav?.label ?? "Dashboard", active: true },
+  ];
+
+  return (
+    <div className="flex h-[35px] items-center border-b border-border bg-card px-4">
+      <div className="flex items-center gap-1 text-xs">
+        {segments.map((seg, i) => (
+          <span key={i} className="flex items-center gap-1">
+            {i > 0 && <ChevronRight className="size-3 text-muted-foreground" />}
+            <span
+              className={cn(
+                seg.active
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground cursor-default",
+              )}
+            >
+              {seg.label}
+            </span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Mobile header for small screens */
 function MobileHeader() {
   const { toggleMobile } = useSidebar();
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-sidebar px-4 lg:hidden">
-      <span className="text-sm font-semibold text-sidebar-foreground">AllCLI</span>
+    <header className="flex h-10 items-center justify-between border-b border-border bg-surface-1 px-3 lg:hidden">
+      <div className="flex items-center gap-2">
+        <Terminal className="size-4 text-primary" />
+        <span className="text-xs font-medium text-foreground">AllCLI</span>
+      </div>
       <button
         type="button"
         onClick={toggleMobile}
-        className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="flex size-7 items-center justify-center rounded text-subtext hover:bg-surface-2 hover:text-foreground"
         aria-label="Open menu"
       >
-        <Menu className="size-5" />
+        <Menu className="size-4" />
       </button>
     </header>
   );
 }
 
-function Sidebar() {
+/** Status bar at the bottom — IDE style */
+function StatusBar() {
+  const location = useLocation();
+  const currentNav = navItems.find((item) =>
+    item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to),
+  );
+
+  return (
+    <footer className="flex h-[22px] items-center border-t border-[#313244] bg-[#181825] px-2 text-[11px]">
+      <div className="flex items-center gap-3">
+        {/* Branch indicator */}
+        <span className="flex items-center gap-1 text-subtext">
+          <Terminal className="size-3" />
+          main
+        </span>
+
+        {/* Current view */}
+        <span className="text-subtext">{currentNav?.label ?? "Explorer"}</span>
+      </div>
+
+      <div className="ml-auto flex items-center gap-3">
+        {/* Live indicator */}
+        <span className="flex items-center gap-1 text-success">
+          <span className="relative flex size-1.5">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-75" />
+            <span className="relative inline-flex size-1.5 rounded-full bg-success" />
+          </span>
+          Live
+        </span>
+
+        {/* Connection status placeholder */}
+        <span className="flex items-center gap-1 text-subtext">
+          <Wifi className="size-3" />
+          Connected
+        </span>
+
+        {/* Line/col style info */}
+        <span className="text-subtext">v0.1.0</span>
+      </div>
+    </footer>
+  );
+}
+
+/** Activity bar — icon-only vertical strip, VS Code style */
+function ActivityBar() {
+  const location = useLocation();
+
+  return (
+    <nav className="flex w-12 flex-col items-center border-r border-border bg-sidebar pt-1">
+      {navItems.map((item) => {
+        const Icon = item.icon;
+        const isActive =
+          item.to === "/"
+            ? location.pathname === "/"
+            : location.pathname.startsWith(item.to);
+
+        return (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.to === "/"}
+            className={cn(
+              "group relative flex size-12 items-center justify-center transition-colors",
+              isActive
+                ? "text-foreground"
+                : "text-subtext hover:text-foreground",
+            )}
+            title={item.label}
+          >
+            {/* Active indicator — left border accent */}
+            {isActive && (
+              <span className="absolute left-0 top-1/2 h-6 w-[2px] -translate-y-1/2 bg-primary" />
+            )}
+            <Icon className="size-5" />
+          </NavLink>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** Sidebar panel — file-tree style, collapsible */
+function SidebarPanel() {
   const { collapsed, mobileOpen, setCollapsed, setMobileOpen } = useSidebar();
 
   const closeMobile = useCallback(() => {
@@ -78,7 +201,7 @@ function Sidebar() {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/60 lg:hidden"
           onClick={closeMobile}
           onKeyDown={(e) => e.key === "Escape" && closeMobile()}
           role="button"
@@ -90,46 +213,28 @@ function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 flex h-dvh flex-col border-r border-border bg-sidebar transition-transform duration-150 lg:translate-x-0",
-          collapsed ? "w-[72px]" : "w-[260px]",
-          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          "flex flex-col border-r border-border bg-surface-1 transition-[width] duration-100",
+          collapsed ? "w-0 overflow-hidden lg:w-0" : "w-56",
+          mobileOpen && "fixed left-12 top-0 z-50 h-dvh w-56 lg:static lg:h-auto lg:z-auto",
         )}
       >
-        {/* Header */}
-        <div className="flex h-14 items-center justify-between border-b border-border px-4">
-          {!collapsed && (
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                AllCLI
-              </span>
-              <span className="text-sm font-semibold text-sidebar-foreground">
-                Agent Dashboard
-              </span>
-            </div>
-          )}
+        {/* Panel header */}
+        <div className="flex h-[35px] shrink-0 items-center justify-between border-b border-border px-3">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-subtext">
+            Explorer
+          </span>
           <button
             type="button"
-            onClick={() => (window.innerWidth >= 1024 ? setCollapsed(!collapsed) : setMobileOpen(false))}
-            className={cn(
-              "flex size-8 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-              collapsed && "lg:mx-auto"
-            )}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => setCollapsed(true)}
+            className="flex size-5 items-center justify-center rounded text-subtext hover:bg-surface-2 hover:text-foreground"
+            aria-label="Collapse sidebar"
           >
-            {window.innerWidth >= 1024 ? (
-              collapsed ? (
-                <span className="text-xs font-medium">{">"}</span>
-              ) : (
-                <X className="size-4" />
-              )
-            ) : (
-              <X className="size-4" />
-            )}
+            <ChevronRight className="size-3.5" />
           </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex flex-1 flex-col gap-1 p-3">
+        {/* Navigation items — file-tree style */}
+        <nav className="flex flex-1 flex-col py-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -140,47 +245,51 @@ function Sidebar() {
                 onClick={closeMobile}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    "flex items-center gap-2 px-3 py-1 text-xs transition-colors",
                     isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-sidebar-foreground/70 hover:bg-muted hover:text-sidebar-foreground",
-                    collapsed && "justify-center px-2"
+                      ? "bg-surface-2 text-foreground"
+                      : "text-subtext hover:bg-surface-2/50 hover:text-foreground",
                   )
                 }
               >
-                <Icon className="size-5 shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
+                <Icon className="size-4 shrink-0" />
+                <span>{item.label}</span>
               </NavLink>
             );
           })}
         </nav>
-
-        {/* Live indicator */}
-        <div className={cn("border-t border-border p-4", collapsed && "flex justify-center")}>
-          <div
-            className={cn(
-              "flex items-center gap-2 rounded-lg bg-card/50 px-3 py-2",
-              collapsed && "px-2"
-            )}
-          >
-            <span className="relative flex size-2">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-75" />
-              <span className="relative inline-flex size-2 rounded-full bg-primary" />
-            </span>
-            {!collapsed && (
-              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Live
-              </span>
-            )}
-          </div>
-        </div>
       </aside>
     </>
   );
 }
 
+/** Expand sidebar button — shows when collapsed */
+function ExpandButton() {
+  const { collapsed, setCollapsed, setMobileOpen } = useSidebar();
+
+  if (!collapsed) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (window.innerWidth >= 1024) {
+          setCollapsed(false);
+        } else {
+          setMobileOpen(true);
+        }
+      }}
+      className="flex size-12 items-center justify-center text-subtext hover:text-foreground lg:flex"
+      aria-label="Expand sidebar"
+      title="Show Explorer"
+    >
+      <ChevronRight className="size-4" />
+    </button>
+  );
+}
+
 export function App() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const toggleMobile = useCallback(() => {
@@ -198,25 +307,91 @@ export function App() {
   return (
     <BrowserRouter>
       <SidebarContext.Provider value={contextValue}>
-        <div className="min-h-dvh bg-background text-foreground">
-          <Sidebar />
-          <MobileHeader />
-          <main
-            className={cn(
-              "min-h-dvh p-6 transition-[margin] duration-150",
-              collapsed ? "lg:ml-[72px]" : "lg:ml-[260px]"
-            )}
-          >
-            <Routes>
-              <Route path="/" element={<DashboardHome />} />
-              <Route path="/agents" element={<AgentsPage />} />
-              <Route path="/tasks" element={<TasksPage />} />
-              <Route path="/review" element={<ReviewPage />} />
-              <Route path="/costs" element={<CostsPage />} />
-            </Routes>
-          </main>
+        <div className="flex h-dvh flex-col bg-background text-foreground">
+          {/* Main IDE area */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Activity bar — always visible */}
+            <div className="hidden lg:flex">
+              <ActivityBar />
+            </div>
+
+            {/* Mobile: activity bar + sidebar combined */}
+            <MobileHeader />
+
+            {/* Sidebar panel — collapsible */}
+            <div className="hidden lg:flex">
+              <SidebarPanel />
+            </div>
+
+            {/* Expand button when sidebar is collapsed */}
+            <div className="hidden lg:flex flex-col">
+              <ExpandButton />
+            </div>
+
+            {/* Content area */}
+            <div className="flex flex-1 flex-col overflow-hidden">
+              {/* Title bar */}
+              <div className="hidden lg:flex">
+                <TitleBar />
+              </div>
+
+              {/* Tab bar — IDE style */}
+              <TabBar />
+
+              {/* Scrollable content */}
+              <main className="flex-1 overflow-y-auto p-4">
+                <Routes>
+                  <Route path="/" element={<DashboardHome />} />
+                  <Route path="/agents" element={<AgentsPage />} />
+                  <Route path="/tasks" element={<TasksPage />} />
+                  <Route path="/review" element={<ReviewPage />} />
+                  <Route path="/costs" element={<CostsPage />} />
+                </Routes>
+              </main>
+            </div>
+          </div>
+
+          {/* Status bar */}
+          <StatusBar />
+
+          {/* Agentation — dev-only annotation tool */}
+          {import.meta.env.DEV && <Agentation />}
         </div>
       </SidebarContext.Provider>
     </BrowserRouter>
+  );
+}
+
+/** IDE-style tab bar showing open views */
+function TabBar() {
+  const location = useLocation();
+
+  const activeTab = navItems.find((item) =>
+    item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to),
+  );
+
+  // Show current tab + always show "welcome" style tab for current view
+  const tabs = [
+    { to: activeTab?.to ?? "/", label: activeTab?.label ?? "Dashboard", active: true },
+  ];
+
+  return (
+    <div className="flex h-[35px] items-end border-b border-border bg-surface-1">
+      {tabs.map((tab) => (
+        <div
+          key={tab.to}
+          className={cn(
+            "flex h-[34px] items-center gap-1.5 border-r border-border px-3 text-xs",
+            tab.active
+              ? "border-t-2 border-t-primary bg-background text-foreground"
+              : "bg-surface-1 text-subtext hover:text-foreground",
+          )}
+        >
+          <span>{tab.label}</span>
+        </div>
+      ))}
+      {/* Fade edge */}
+      <div className="flex-1 border-b border-border" />
+    </div>
   );
 }

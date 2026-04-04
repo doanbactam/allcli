@@ -49,7 +49,7 @@ function deriveAgents(sessions: ApiSession[]): AgentCard[] {
 
   for (const [provider, providerSessions] of byProvider) {
     const activeCount = providerSessions.filter(
-      (s) => s.status === "working" || s.status === "spawning"
+      (s) => s.status === "working" || s.status === "spawning",
     ).length;
     const hasErrors = providerSessions.some((s) => s.status === "errored");
 
@@ -75,20 +75,16 @@ function deriveAgents(sessions: ApiSession[]): AgentCard[] {
   return agents;
 }
 
-function AgentCardSkeleton() {
+function AgentRowSkeleton() {
   return (
-    <div className="rounded-xl border border-border/60 bg-card/60 p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-2">
-          <div className="h-5 w-24 animate-pulse rounded bg-muted" />
-          <div className="h-3 w-48 animate-pulse rounded bg-muted/60" />
-        </div>
-        <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
+    <div className="flex items-center gap-3 border-b border-border/50 px-3 py-2">
+      <div className="size-6 animate-pulse rounded bg-surface-2" />
+      <div className="flex flex-1 flex-col gap-1">
+        <div className="h-3 w-24 animate-pulse rounded bg-surface-2" />
+        <div className="h-2.5 w-40 animate-pulse rounded bg-surface-2" />
       </div>
-      <div className="mt-4 flex flex-col gap-2">
-        <div className="h-3 w-32 animate-pulse rounded bg-muted/60" />
-        <div className="h-3 w-24 animate-pulse rounded bg-muted/60" />
-      </div>
+      <div className="h-4 w-16 animate-pulse rounded bg-surface-2" />
+      <div className="h-4 w-8 animate-pulse rounded bg-surface-2" />
     </div>
   );
 }
@@ -119,58 +115,50 @@ export function AgentsPage() {
   const errorMessage = state.status === "error" ? state.error : null;
 
   return (
-    <div className="flex flex-col gap-6 animate-fade-in">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-xl font-bold tracking-tight text-balance">Agents</h1>
-        <p className="text-sm text-muted-foreground text-pretty">
-          Track AI worker health and provider distribution across your orchestration system.
-        </p>
-      </header>
-
-      {/* Filter Tabs */}
-      <div className="flex flex-wrap gap-2">
+    <div className="flex flex-col gap-4 animate-fade-in">
+      {/* Filter tabs — IDE segmented control style */}
+      <div className="flex items-center gap-px border border-border bg-surface-1">
         {filters.map((filter) => (
           <button
             key={filter}
             type="button"
             onClick={() => setActiveFilter(filter)}
             className={cn(
-              "rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
+              "px-3 py-1 text-[11px] font-medium transition-colors",
               activeFilter === filter
-                ? "border-primary/50 bg-primary/10 text-primary"
-                : "border-border/60 bg-card/40 text-muted-foreground hover:border-border hover:bg-card/60 hover:text-foreground"
+                ? "bg-surface-2 text-foreground"
+                : "text-subtext hover:text-foreground",
             )}
           >
-            {filter === "All" ? "All Providers" : (providerLabels[filter] ?? filter)}
+            {filter === "All" ? "All" : (providerLabels[filter] ?? filter)}
           </button>
         ))}
       </div>
 
-      {/* Loading State */}
+      {/* Loading */}
       {isLoading && (
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          <AgentCardSkeleton />
-          <AgentCardSkeleton />
-          <AgentCardSkeleton />
+        <section className="border border-border bg-surface-1">
+          <AgentRowSkeleton />
+          <AgentRowSkeleton />
+          <AgentRowSkeleton />
         </section>
       )}
 
-      {/* Error State */}
+      {/* Error */}
       {hasError && (
-        <div className="flex items-center justify-center rounded-xl border border-danger/30 bg-danger/5 py-12 text-sm text-danger">
+        <div className="flex items-center gap-2 border border-danger/30 bg-danger/5 px-3 py-3 text-xs text-danger">
+          <span className="size-1.5 rounded-full bg-danger" />
           Failed to load agents: {errorMessage}. Retrying...
         </div>
       )}
 
-      {/* Empty State */}
+      {/* Empty */}
       {!isLoading && !hasError && filteredAgents.length === 0 && (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border/60 bg-card/40 py-16 text-center">
-          <div className="flex size-14 items-center justify-center rounded-full bg-muted/50">
-            <Bot className="size-6 text-muted-foreground" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">No agents found</p>
-            <p className="text-xs text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 border border-border bg-surface-1 py-8">
+          <Bot className="size-4 text-subtext" />
+          <div className="flex flex-col gap-0.5 text-center">
+            <p className="text-xs text-foreground">No agents found</p>
+            <p className="text-[10px] text-subtext">
               {activeFilter === "All"
                 ? "Start a session to see agent activity."
                 : `No ${providerLabels[activeFilter] ?? activeFilter} agents active.`}
@@ -179,63 +167,57 @@ export function AgentsPage() {
         </div>
       )}
 
-      {/* Agent Cards Grid */}
+      {/* Agent list — table/list view like IDE terminal */}
       {!isLoading && !hasError && filteredAgents.length > 0 && (
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          {filteredAgents.map((agent) => (
-            <article
-              key={agent.id}
-              className="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-border/80"
-            >
-              <div className="flex flex-col gap-4">
-                {/* Header */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "flex size-10 items-center justify-center rounded-lg border",
-                        agent.status === "working"
-                          ? "border-primary/40 bg-primary/10"
-                          : "border-border bg-muted/50"
-                      )}
-                    >
-                      <Cpu
-                        className={cn(
-                          "size-5",
-                          agent.status === "working" ? "text-primary" : "text-muted-foreground"
-                        )}
-                      />
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                      <h2 className="text-base font-semibold">{agent.name}</h2>
-                      <p className="text-xs text-muted-foreground line-clamp-1">
-                        {agent.description}
-                      </p>
-                    </div>
-                  </div>
-                  <StatusBadge status={agent.status} />
-                </div>
+        <section className="border border-border bg-surface-1">
+          {/* Table header */}
+          <div className="flex items-center gap-3 border-b border-border px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-subtext">
+            <span className="w-6" />
+            <span className="flex-1">Provider</span>
+            <span className="w-20 text-center">Status</span>
+            <span className="w-16 text-right tabular-nums">Active</span>
+            <span className="w-16 text-right tabular-nums">Total</span>
+          </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1 rounded-lg bg-background/40 px-3 py-2">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Active Tasks
-                    </span>
-                    <span className="flex items-center gap-1.5 text-lg font-bold tabular-nums">
-                      {agent.activeTasks > 0 && <Zap className="size-3 text-primary" />}
-                      {agent.activeTasks}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-1 rounded-lg bg-background/40 px-3 py-2">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Total Sessions
-                    </span>
-                    <span className="text-lg font-bold tabular-nums">{agent.totalSessions}</span>
-                  </div>
-                </div>
+          {filteredAgents.map((agent) => (
+            <div
+              key={agent.id}
+              className="group flex items-center gap-3 border-b border-border/50 px-3 py-2 transition-colors last:border-b-0 hover:bg-surface-2/50"
+            >
+              {/* Icon */}
+              <div
+                className={cn(
+                  "flex size-6 items-center justify-center rounded",
+                  agent.status === "working"
+                    ? "bg-primary/10 text-primary"
+                    : "bg-surface-2 text-subtext",
+                )}
+              >
+                <Cpu className="size-3.5" />
               </div>
-            </article>
+
+              {/* Name + description */}
+              <div className="flex flex-1 flex-col gap-px min-w-0">
+                <p className="truncate text-xs font-medium text-foreground">{agent.name}</p>
+                <p className="truncate text-[10px] text-subtext">{agent.description}</p>
+              </div>
+
+              {/* Status */}
+              <div className="w-20 flex justify-center">
+                <StatusBadge status={agent.status} />
+              </div>
+
+              {/* Active tasks */}
+              <div className="flex w-16 items-center justify-end gap-1 tabular-nums">
+                {agent.activeTasks > 0 && <Zap className="size-2.5 text-warning" />}
+                <span className="text-xs font-medium">{agent.activeTasks}</span>
+              </div>
+
+              {/* Total sessions */}
+              <div className="w-16 text-right text-xs tabular-nums text-subtext">
+                {agent.totalSessions}
+              </div>
+            </div>
           ))}
         </section>
       )}

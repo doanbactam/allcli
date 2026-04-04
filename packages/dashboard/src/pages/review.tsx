@@ -1,6 +1,8 @@
 import { useCallback } from "react";
+import { ChevronRight, CheckCircle2, XCircle } from "lucide-react";
 import { api, type ApiTask } from "@/lib/api-client";
 import { useApiData } from "@/hooks/use-api-data";
+import { cn } from "@/lib/utils";
 
 function hasResult(task: ApiTask): task is ApiTask & { result: NonNullable<ApiTask["result"]> } {
   return task.result !== undefined;
@@ -14,77 +16,101 @@ export function ReviewPage() {
   const completedTasks = tasks.filter(hasResult);
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-balance">Code Review</h1>
-        <p className="text-sm text-muted-foreground text-pretty">
-          Task execution results and output from agent sessions.
-        </p>
-      </header>
-
+    <div className="flex flex-col gap-3 animate-fade-in">
       {state.status === "loading" && (
-        <p className="text-sm text-muted-foreground">Loading results...</p>
+        <div className="flex items-center gap-2 py-4 text-xs text-subtext">
+          <span className="size-1.5 animate-pulse rounded-full bg-subtext" />
+          Loading results...
+        </div>
       )}
 
       {state.status === "error" && (
-        <p className="text-sm text-destructive">Failed to load results: {state.error}</p>
+        <div className="flex items-center gap-2 border border-danger/30 bg-danger/5 px-3 py-3 text-xs text-danger">
+          <span className="size-1.5 rounded-full bg-danger" />
+          Failed to load results: {state.error}
+        </div>
       )}
 
       {completedTasks.length === 0 && state.status === "success" && (
-        <section className="rounded-xl border border-border bg-card p-6">
-          <p className="text-sm text-muted-foreground">
-            No completed tasks with results yet. Tasks will appear here once agents finish execution.
-          </p>
-        </section>
+        <div className="border border-border bg-surface-1 px-3 py-6 text-xs text-subtext">
+          No completed tasks with results yet. Tasks will appear here once agents finish execution.
+        </div>
       )}
 
       {completedTasks.map((task) => (
         <section
           key={task.id}
-          className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4"
+          className="border border-border bg-surface-1"
         >
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-medium">{task.title}</p>
+          {/* Panel header */}
+          <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-1.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <ChevronRight className="size-3 shrink-0 text-subtext" />
+              <span className="truncate text-xs font-medium text-foreground">{task.title}</span>
+            </div>
             <span
-              className={
-                task.result.success
-                  ? "text-xs font-medium text-green-600"
-                  : "text-xs font-medium text-destructive"
-              }
+              className={cn(
+                "flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide",
+                task.result.success ? "text-success" : "text-danger",
+              )}
             >
-              {task.result.success ? "SUCCESS" : "FAILED"}
+              {task.result.success ? (
+                <CheckCircle2 className="size-3" />
+              ) : (
+                <XCircle className="size-3" />
+              )}
+              {task.result.success ? "PASS" : "FAIL"}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <h2 className="text-sm font-medium text-muted-foreground">Output</h2>
-              <textarea
-                readOnly
-                value={task.result.output ?? task.result.error ?? "No output captured"}
-                className="h-56 resize-none rounded-lg border border-border bg-background p-3 font-mono text-sm"
-              />
+          {/* Content — split output/details */}
+          <div className="grid grid-cols-1 gap-px bg-border xl:grid-cols-2">
+            {/* Output — terminal style */}
+            <div className="bg-surface-0">
+              <div className="flex items-center border-b border-border px-3 py-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-subtext">
+                  Output
+                </span>
+              </div>
+              <div className="max-h-48 overflow-y-auto p-3">
+                <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-foreground/80">
+                  {task.result.output ?? task.result.error ?? "No output captured"}
+                </pre>
+              </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <h2 className="text-sm font-medium text-muted-foreground">Details</h2>
-              <div className="flex flex-col gap-2 rounded-lg border border-border bg-background p-3 text-sm">
-                <p>
-                  <span className="text-muted-foreground">Duration:</span>{" "}
-                  <span className="font-medium tabular-nums">{task.result.duration}ms</span>
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Tokens used:</span>{" "}
-                  <span className="font-medium tabular-nums">{task.result.tokensUsed}</span>
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Agent:</span>{" "}
-                  <span className="font-medium">{task.assignedAgent ?? "Unassigned"}</span>
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Completed:</span>{" "}
-                  <span className="font-medium">{new Date(task.updatedAt).toLocaleString()}</span>
-                </p>
+            {/* Details — key-value pairs */}
+            <div className="bg-surface-0">
+              <div className="flex items-center border-b border-border px-3 py-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-subtext">
+                  Details
+                </span>
+              </div>
+              <div className="flex flex-col divide-y divide-border/50">
+                <div className="flex items-center justify-between px-3 py-1.5">
+                  <span className="text-[10px] text-subtext">Duration</span>
+                  <span className="font-mono text-[11px] tabular-nums text-foreground">
+                    {task.result.duration}ms
+                  </span>
+                </div>
+                <div className="flex items-center justify-between px-3 py-1.5">
+                  <span className="text-[10px] text-subtext">Tokens</span>
+                  <span className="font-mono text-[11px] tabular-nums text-foreground">
+                    {task.result.tokensUsed}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between px-3 py-1.5">
+                  <span className="text-[10px] text-subtext">Agent</span>
+                  <span className="font-mono text-[11px] text-foreground">
+                    {task.assignedAgent ?? "Unassigned"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between px-3 py-1.5">
+                  <span className="text-[10px] text-subtext">Completed</span>
+                  <span className="text-[11px] text-foreground">
+                    {new Date(task.updatedAt).toLocaleString()}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

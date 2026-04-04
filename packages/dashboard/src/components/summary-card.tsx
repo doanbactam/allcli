@@ -1,45 +1,54 @@
-type TrendDirection = "up" | "down" | "neutral";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
 type SummaryCardProps = {
   title: string;
   value: string;
   subtitle?: string;
   icon?: React.ReactNode;
-  trend?: { direction: TrendDirection; value: string };
 };
 
 export function SummaryCard({ title, value, subtitle, icon }: SummaryCardProps) {
   return (
-    <article className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {title}
-          </h3>
-          <p className="text-2xl font-bold tabular-nums tracking-tight">{value}</p>
-          {subtitle ? (
-            <p className="text-xs text-muted-foreground">{subtitle}</p>
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          {icon ? (
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              {icon}
+            </div>
           ) : null}
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">{title}</span>
+            <span className="text-lg font-semibold tabular-nums tracking-tight text-foreground">
+              {value}
+            </span>
+          </div>
         </div>
-        {icon ? (
-          <div className="shrink-0 text-muted-foreground">{icon}</div>
-        ) : null}
-      </div>
-    </article>
+      </CardHeader>
+      {subtitle ? (
+        <CardContent>
+          <span className="text-xs text-muted-foreground">{subtitle}</span>
+        </CardContent>
+      ) : null}
+    </Card>
   );
 }
 
 export function SummaryCardSkeleton() {
   return (
-    <article className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-2">
-          <div className="h-3 w-20 animate-pulse rounded bg-muted" />
-          <div className="h-7 w-16 animate-pulse rounded bg-muted" />
-          <div className="h-3 w-28 animate-pulse rounded bg-muted/60" />
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <div className="size-9 shrink-0 animate-pulse rounded-md bg-muted" />
+          <div className="flex flex-col gap-1.5">
+            <div className="h-3 w-16 animate-pulse rounded bg-muted" />
+            <div className="h-5 w-14 animate-pulse rounded bg-muted" />
+          </div>
         </div>
-        <div className="size-8 animate-pulse rounded bg-muted" />
-      </div>
-    </article>
+      </CardHeader>
+      <CardContent>
+        <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+      </CardContent>
+    </Card>
   );
 }
