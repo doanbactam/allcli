@@ -15,8 +15,6 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
-    "@allcli/core": "workspace:*",
-    "@allcli/providers": "workspace:*",
-    "@allcli/workspace": "workspace:*"
+    "@allcli/core": "workspace:*"
   }
 }

@@ -82,9 +82,11 @@ export class RalphLoop {
       const context = this.buildContext(iteration, initialPrompt, learnings, previousOutputs);
 
       try {
-        const result = await this.onIteration(iteration, context);
-        const isTimeout = result.duration > this.effectiveConfig.iterationTimeoutMs;
-        const status = this.resolveStatus(result, isTimeout);
+        const result = await Promise.race([
+          this.onIteration(iteration, context),
+          this.createTimeout(this.effectiveConfig.iterationTimeoutMs, iteration),
+        ]);
+        const status = this.resolveStatus(result);
 
         iterations.push({
           number: iteration,
@@ -122,14 +124,18 @@ export class RalphLoop {
         }
       } catch (error) {
         const output = error instanceof Error ? error.message : "Unknown iteration error";
+        const isTimeout = output.includes("timed out");
         iterations.push({
           number: iteration,
-          status: "failed",
+          status: isTimeout ? "timeout" : "failed",
           output,
           duration: 0,
           tokensUsed: 0,
           timestamp: new Date().toISOString()
         });
+        if (isTimeout) {
+          continue;
+        }
         stopReason = "error";
         break;
       }
@@ -174,11 +180,7 @@ export class RalphLoop {
     };
   }
 
-  private resolveStatus(result: IterationResult, isTimeout: boolean): RalphLoopIteration["status"] {
-    if (isTimeout) {
-      return "timeout";
-    }
-
+  private resolveStatus(result: IterationResult): RalphLoopIteration["status"] {
     if (result.error) {
       return "failed";
     }
@@ -188,6 +190,14 @@ export class RalphLoop {
     }
 
     return "success";
+  }
+
+  private createTimeout(ms: number, iteration: number): Promise<never> {
+    return new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Iteration ${iteration} timed out after ${ms}ms`));
+      }, ms);
+    });
   }
 }
 

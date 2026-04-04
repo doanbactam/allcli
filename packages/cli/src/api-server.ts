@@ -7,6 +7,12 @@ import type { EventMap } from "@allcli/core";
 
 type JsonBody = Record<string, unknown>;
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+} as const;
+
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html",
   ".js": "application/javascript",
@@ -25,14 +31,26 @@ function jsonResponse(res: ServerResponse, data: unknown, status = 200): void {
   res.writeHead(status, {
     "Content-Type": "application/json",
     "Content-Length": Buffer.byteLength(body),
+    ...CORS_HEADERS,
   });
   res.end(body);
 }
 
+const MAX_BODY_SIZE = 1024 * 1024; // 1MB
+
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolvePromise, reject) => {
     const chunks: Buffer[] = [];
-    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    let totalSize = 0;
+    req.on("data", (chunk: Buffer) => {
+      totalSize += chunk.length;
+      if (totalSize > MAX_BODY_SIZE) {
+        reject(new Error("Request body too large"));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on("end", () => resolvePromise(Buffer.concat(chunks).toString("utf8")));
     req.on("error", reject);
   });
@@ -41,7 +59,11 @@ function readBody(req: IncomingMessage): Promise<string> {
 function parseJsonBody(req: IncomingMessage): Promise<JsonBody | undefined> {
   return readBody(req).then((raw) => {
     if (!raw.trim()) return undefined;
-    return JSON.parse(raw) as JsonBody;
+    try {
+      return JSON.parse(raw) as JsonBody;
+    } catch {
+      throw new Error("Invalid JSON body");
+    }
   });
 }
 
@@ -125,13 +147,21 @@ export class ApiServer {
     const url = new URL(req.url ?? "/", `http://localhost:${this.port}`);
     const pathname = url.pathname;
 
+    // Handle CORS preflight
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, { ...CORS_HEADERS });
+      res.end();
+      return;
+    }
+
     // API routes
     if (pathname.startsWith("/api/")) {
       try {
         await this.handleApiRoute(req, res, pathname);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Internal server error";
-        jsonResponse(res, { error: message }, 500);
+        const status = message === "Invalid JSON body" || message === "Request body too large" ? 400 : 500;
+        jsonResponse(res, { error: message }, status);
       }
       return;
     }
@@ -188,11 +218,19 @@ export class ApiServer {
         jsonResponse(res, { error: "title is required" }, 400);
         return;
       }
+      const blockedBy = Array.isArray(body?.["blockedBy"]) && body["blockedBy"].every((v: unknown) => typeof v === "string")
+        ? body["blockedBy"] as string[]
+        : [];
+
+      const acceptanceCriteria = Array.isArray(body?.["acceptanceCriteria"]) && body["acceptanceCriteria"].every((v: unknown) => typeof v === "string")
+        ? body["acceptanceCriteria"] as string[]
+        : [];
+
       const task = this.context.taskTracker.create(title, {
         ...(typeof body?.["description"] === "string" ? { description: body["description"] } : {}),
         ...(typeof body?.["priority"] === "number" ? { priority: body["priority"] } : {}),
-        ...(Array.isArray(body?.["blockedBy"]) ? { blockedBy: body["blockedBy"] as string[] } : {}),
-        ...(Array.isArray(body?.["acceptanceCriteria"]) ? { acceptanceCriteria: body["acceptanceCriteria"] as string[] } : {}),
+        ...(blockedBy.length > 0 ? { blockedBy } : {}),
+        ...(acceptanceCriteria.length > 0 ? { acceptanceCriteria } : {}),
       });
       jsonResponse(res, task, 201);
       return;
@@ -248,6 +286,7 @@ export class ApiServer {
       res.writeHead(200, {
         "Content-Type": contentType,
         "Content-Length": content.length,
+        ...CORS_HEADERS,
       });
       res.end(content);
     } catch {
