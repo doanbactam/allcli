@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "baseUrl": ".",
+    "paths": {
+      "@allcli/core": ["packages/core/src/index.ts"],
+      "@allcli/providers": ["packages/providers/src/index.ts"],
+      "@allcli/orchestrator": ["packages/orchestrator/src/index.ts"],
+      "@allcli/cli": ["packages/cli/src/index.tsx"]
+    },
+    "lib": ["ES2022"],
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "useUnknownInCatchVariables": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "types": ["node", "vitest/globals"],
+    "jsx": "react-jsx"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/providers" },
+    { "path": "./packages/orchestrator" },
+    { "path": "./packages/cli" },
+    { "path": "./packages/skills" },
+    { "path": "./packages/verification" },
+    { "path": "./packages/workspace" }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@allcli/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "allcli": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@allcli/core": "workspace:*",
+    "@allcli/orchestrator": "workspace:*",
+    "@allcli/providers": "workspace:*",
+    "@allcli/skills": "workspace:*",
+    "@allcli/verification": "workspace:*",
+    "@allcli/workspace": "workspace:*",
+    "commander": "^14.0.1",
+    "ink": "^5.2.1",
+    "react": "^18.3.1",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  }
+}

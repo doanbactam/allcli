@@ -1,0 +1,29 @@
+{
+  "name": "allcli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.8.0",
+  "pnpm": {
+    "overrides": {
+      "@types/react": "18.3.28"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "vitest run",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "@types/node": "^24.4.0",
+    "@types/react": "^18.3.24",
+    "@typescript-eslint/eslint-plugin": "^8.43.0",
+    "@typescript-eslint/parser": "^8.43.0",
+    "eslint": "^9.35.0",
+    "react": "^18.3.1",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

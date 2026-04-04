@@ -1,0 +1,47 @@
+version: "1"
+
+project:
+  name: allcli
+
+providers:
+  default: claude
+  claude:
+    command: claude
+    model: sonnet
+    dangerous: true
+    outputFormat: text
+  opencode:
+    command: opencode
+    model: anthropic/claude-sonnet-4
+    dangerous: false
+    outputFormat: text
+  codex:
+    command: codex
+    model: gpt-5-codex
+    dangerous: false
+    outputFormat: text
+
+orchestrator:
+  statePath: .allcli/sessions.json
+  maxIterations: 50
+  iterationTimeoutMs: 600000
+  contextRefresh: fresh
+
+workspace:
+  baseBranch: main
+  isolation: worktree
+  autoCleanup: true
+
+skills:
+  directories:
+    - .allcli/skills
+
+verification:
+  gates:
+    - typecheck
+    - lint
+    - test
+    - build
+  costLimit:
+    perSession: 10
+    perProject: 100

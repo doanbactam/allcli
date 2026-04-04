@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: oklch(0.12 0.015 260);
+  --color-foreground: oklch(0.94 0.01 260);
+  --color-card: oklch(0.16 0.012 260);
+  --color-card-foreground: oklch(0.94 0.01 260);
+  --color-muted: oklch(0.21 0.012 260);
+  --color-muted-foreground: oklch(0.62 0.015 260);
+  --color-border: oklch(0.26 0.015 260);
+  --color-primary: oklch(0.62 0.18 250);
+  --color-primary-foreground: oklch(0.12 0.02 250);
+  --color-sidebar: oklch(0.10 0.012 260);
+  --color-sidebar-foreground: oklch(0.85 0.01 260);
+  --color-success: oklch(0.60 0.14 150);
+  --color-success-foreground: oklch(0.12 0.02 150);
+  --color-warning: oklch(0.72 0.14 80);
+  --color-warning-foreground: oklch(0.15 0.04 80);
+  --color-danger: oklch(0.58 0.18 25);
+  --color-danger-foreground: oklch(0.12 0.02 25);
+  --color-accent: oklch(0.62 0.18 250);
+  --color-accent-foreground: oklch(0.12 0.02 250);
+  --radius-sm: 0.5rem;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  border-color: var(--color-border);
+}
+
+html {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  min-height: 100dvh;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.15s ease-out;
+}
+
+.animate-slide-in {
+  animation: slide-in 0.15s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-slide-in {
+    animation: none;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.28 0.015 260);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.38 0.015 260);
+}
