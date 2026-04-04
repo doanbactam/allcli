@@ -1,21 +1,28 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { relative, resolve } from "node:path";
 
 export class FileManager {
   constructor(private readonly workspaceRoot: string) {}
 
-  async readFile(filePath: string): Promise<string> {
+  private validatePath(filePath: string): string {
     const absolute = resolve(this.workspaceRoot, filePath);
-    return readFileSync(absolute, "utf8");
+    const relativePath = relative(this.workspaceRoot, absolute);
+    if (relativePath.startsWith("..") || relativePath.startsWith("/")) {
+      throw new Error(`Path traversal detected: ${filePath}`);
+    }
+    return absolute;
+  }
+
+  async readFile(filePath: string): Promise<string> {
+    return readFileSync(this.validatePath(filePath), "utf8");
   }
 
   async writeFile(filePath: string, content: string): Promise<void> {
-    const absolute = resolve(this.workspaceRoot, filePath);
-    writeFileSync(absolute, content);
+    writeFileSync(this.validatePath(filePath), content);
   }
 
   async searchFiles(directory: string, pattern: string): Promise<string[]> {
-    const start = resolve(this.workspaceRoot, directory);
+    const start = this.validatePath(directory);
     const results: string[] = [];
 
     const scan = (currentDir: string): void => {
@@ -41,7 +48,6 @@ export class FileManager {
   }
 
   exists(filePath: string): boolean {
-    const absolute = resolve(this.workspaceRoot, filePath);
-    return existsSync(absolute);
+    return existsSync(this.validatePath(filePath));
   }
 }

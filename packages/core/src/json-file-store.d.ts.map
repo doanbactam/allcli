@@ -1,0 +1,1 @@
+{"version":3,"file":"json-file-store.d.ts","sourceRoot":"","sources":["json-file-store.ts"],"names":[],"mappings":"AAGA,qBAAa,aAAa,CAAC,CAAC;IACd,OAAO,CAAC,QAAQ,CAAC,QAAQ;gBAAR,QAAQ,EAAE,MAAM;IAE7C,IAAI,IAAI,CAAC,EAAE;IAwBX,IAAI,CAAC,OAAO,EAAE,CAAC,EAAE,GAAG,IAAI;CAKzB"}

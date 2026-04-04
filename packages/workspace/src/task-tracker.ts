@@ -1,13 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { resolve } from "node:path";
+import { JsonFileStore } from "@allcli/core";
 import type { Task, TaskResult } from "./types.js";
 
 export class TaskTracker {
+  private readonly store: JsonFileStore<Task>;
+
   constructor(
     private readonly workspaceRoot: string,
     private readonly stateFilePath = resolve(workspaceRoot, ".allcli", "tasks.json")
-  ) {}
+  ) {
+    this.store = new JsonFileStore<Task>(stateFilePath);
+  }
 
   create(
     title: string,
@@ -31,14 +35,14 @@ export class TaskTracker {
       updatedAt: now
     };
 
-    const tasks = this.loadTasks();
+    const tasks = this.store.load();
     tasks.push(task);
-    this.saveTasks(tasks);
+    this.store.save(tasks);
     return task;
   }
 
   list(filter?: { status?: Task["status"]; assignedAgent?: string }): Task[] {
-    const tasks = this.loadTasks();
+    const tasks = this.store.load();
     return tasks.filter((task) => {
       if (filter?.status && task.status !== filter.status) {
         return false;
@@ -53,16 +57,16 @@ export class TaskTracker {
   }
 
   getById(id: string): Task | undefined {
-    return this.loadTasks().find((task) => task.id === id || task.id.startsWith(id));
+    return this.store.load().find((task) => task.id === id || task.id.startsWith(id));
   }
 
   private findTaskIndex(id: string): number {
-    const tasks = this.loadTasks();
+    const tasks = this.store.load();
     return tasks.findIndex((task) => task.id === id || task.id.startsWith(id));
   }
 
   update(id: string, patch: Partial<Task>): Task {
-    const tasks = this.loadTasks();
+    const tasks = this.store.load();
     const index = this.findTaskIndex(id);
     if (index < 0) {
       throw new Error(`Task not found: ${id}`);
@@ -78,7 +82,7 @@ export class TaskTracker {
     };
 
     tasks[index] = updated;
-    this.saveTasks(tasks);
+    this.store.save(tasks);
     return updated;
   }
 
@@ -106,7 +110,7 @@ export class TaskTracker {
   }
 
   resolveDependencies(): Task[] {
-    const tasks = this.loadTasks();
+    const tasks = this.store.load();
     const byId = new Map(tasks.map((task) => [task.id, task]));
 
     return tasks
@@ -120,29 +124,5 @@ export class TaskTracker {
       status: "completed",
       result
     });
-  }
-
-  private loadTasks(): Task[] {
-    if (!existsSync(this.stateFilePath)) {
-      return [];
-    }
-
-    const raw = readFileSync(this.stateFilePath, "utf8");
-    if (!raw.trim()) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed as Task[];
-  }
-
-  private saveTasks(tasks: Task[]): void {
-    const absolute = resolve(this.stateFilePath);
-    mkdirSync(dirname(absolute), { recursive: true });
-    writeFileSync(absolute, JSON.stringify(tasks, null, 2));
   }
 }

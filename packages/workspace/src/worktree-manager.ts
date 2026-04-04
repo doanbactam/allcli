@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
+import { JsonFileStore } from "@allcli/core";
 import type { CleanupResult, CreateWorktreeOptions, Worktree } from "./types.js";
 
 interface StoredWorktree {
@@ -19,10 +20,14 @@ interface PorcelainWorktreeEntry {
 }
 
 export class WorktreeManager {
+  private readonly store: JsonFileStore<StoredWorktree>;
+
   constructor(
     private readonly workspaceRoot: string,
     private readonly stateFilePath = resolve(workspaceRoot, ".allcli", "worktrees.json")
-  ) {}
+  ) {
+    this.store = new JsonFileStore<StoredWorktree>(stateFilePath);
+  }
 
   async create(options: CreateWorktreeOptions): Promise<Worktree> {
     const baseBranch = options.baseBranch ?? this.resolveBaseBranch();
@@ -45,9 +50,9 @@ export class WorktreeManager {
       createdAt: now
     };
 
-    const records = this.loadRecords();
+    const records = this.store.load();
     records.push(created);
-    this.saveRecords(records);
+    this.store.save(records);
 
     return {
       ...created,
@@ -57,7 +62,7 @@ export class WorktreeManager {
 
   async list(): Promise<Worktree[]> {
     const parsed = this.parseWorktreePorcelain();
-    const records = this.loadRecords();
+    const records = this.store.load();
     const byPath = new Map(records.map((record) => [resolve(record.path), record]));
     const mergedBranches = this.getMergedBranches();
     let changed = false;
@@ -104,14 +109,14 @@ export class WorktreeManager {
     });
 
     if (changed) {
-      this.saveRecords(records);
+      this.store.save(records);
     }
 
     return listed;
   }
 
   async remove(worktreeId: string): Promise<void> {
-    const records = this.loadRecords();
+    const records = this.store.load();
     const target = records.find((record) => record.id === worktreeId || record.id.startsWith(worktreeId));
     if (!target) {
       throw new Error(`Worktree not found: ${worktreeId}`);
@@ -124,12 +129,12 @@ export class WorktreeManager {
       });
     }
 
-    this.saveRecords(records.filter((record) => record.id !== target.id));
+    this.store.save(records.filter((record) => record.id !== target.id));
   }
 
   async cleanup(options?: { dryRun?: boolean }): Promise<CleanupResult> {
     const dryRun = options?.dryRun ?? false;
-    const records = this.loadRecords();
+    const records = this.store.load();
     const listed = await this.list();
 
     // Filter out the main worktree (first entry from git worktree list)
@@ -151,7 +156,7 @@ export class WorktreeManager {
         }
       }
       const keptRecords = records.filter((record) => !removableIds.has(record.id));
-      this.saveRecords(keptRecords);
+      this.store.save(keptRecords);
     }
 
     return {
@@ -225,30 +230,6 @@ export class WorktreeManager {
   private nameFromPath(worktreePath: string): string {
     const parts = worktreePath.split(/[/\\]+/);
     return parts[parts.length - 1] || worktreePath;
-  }
-
-  private loadRecords(): StoredWorktree[] {
-    if (!existsSync(this.stateFilePath)) {
-      return [];
-    }
-
-    const raw = readFileSync(this.stateFilePath, "utf8");
-    if (!raw.trim()) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed as StoredWorktree[];
-  }
-
-  private saveRecords(records: StoredWorktree[]): void {
-    const absolute = resolve(this.stateFilePath);
-    mkdirSync(dirname(absolute), { recursive: true });
-    writeFileSync(absolute, JSON.stringify(records, null, 2));
   }
 }
 

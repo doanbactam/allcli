@@ -1,31 +1,18 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { JsonFileStore } from "@allcli/core";
 import type { SessionRecord } from "@allcli/core";
 
 export class SessionStore {
-  constructor(private readonly stateFilePath: string) {}
+  private readonly store: JsonFileStore<SessionRecord>;
+
+  constructor(private readonly stateFilePath: string) {
+    this.store = new JsonFileStore<SessionRecord>(stateFilePath);
+  }
 
   load(): SessionRecord[] {
-    if (!existsSync(this.stateFilePath)) {
-      return [];
-    }
-
-    const raw = readFileSync(this.stateFilePath, "utf8");
-    if (!raw.trim()) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed as SessionRecord[];
+    return this.store.load();
   }
 
   save(records: SessionRecord[]): void {
-    const absolute = resolve(this.stateFilePath);
-    mkdirSync(dirname(absolute), { recursive: true });
-    writeFileSync(absolute, JSON.stringify(records, null, 2));
+    this.store.save(records);
   }
 }

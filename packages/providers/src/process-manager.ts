@@ -34,12 +34,24 @@ export class ProcessManager {
   ): Promise<ProviderHandle> {
     return new Promise<ProviderHandle>((resolve, reject) => {
       const executable = this.normalizeCommand(command);
-      const useShell = process.platform === "win32" && /\.(cmd|bat)$/i.test(executable);
-      const child = spawn(executable, args, {
-        cwd,
-        stdio: "pipe",
-        shell: useShell
-      });
+      const isCmd = process.platform === "win32" && /\.(cmd|bat)$/i.test(executable);
+
+      let child: ChildProcessWithoutNullStreams;
+      if (isCmd) {
+        const comspec = process.env.ComSpec ?? "cmd.exe";
+        child = spawn(comspec, ["/d", "/s", "/c", executable, ...args], {
+          cwd,
+          stdio: "pipe",
+          shell: false,
+          windowsVerbatimArguments: true,
+        }) as ChildProcessWithoutNullStreams;
+      } else {
+        child = spawn(executable, args, {
+          cwd,
+          stdio: "pipe",
+          shell: false,
+        }) as ChildProcessWithoutNullStreams;
+      }
 
       const handle: ProviderHandle = {
         id: randomUUID(),
@@ -151,13 +163,13 @@ export class ProcessManager {
   async destroy(handle: ProviderHandle): Promise<void> {
     const managedProcess = this.processes.get(handle.id);
     if (managedProcess) {
-      managedProcess.child.kill("SIGTERM");
+      managedProcess.child.kill();
       this.processes.delete(handle.id);
       return;
     }
 
     try {
-      process.kill(handle.pid, "SIGTERM");
+      process.kill(handle.pid);
     } catch {
       return;
     }
