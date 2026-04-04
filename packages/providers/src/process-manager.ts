@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { execFileSync, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { extname } from "node:path";
 import type { ActivityState, ProviderHandle, SpawnEvents } from "@allcli/core";
 
@@ -23,7 +23,14 @@ export class ProcessManager {
       return command;
     }
 
-    return `${command}.cmd`;
+    // Check if command.cmd exists in PATH (e.g., claude.cmd, opencode.cmd).
+    // node, git, python etc. are .exe and resolve via PATHEXT without .cmd suffix.
+    try {
+      execFileSync("where", [`${command}.cmd`], { encoding: "utf8", stdio: "pipe" });
+      return `${command}.cmd`;
+    } catch {
+      return command;
+    }
   }
 
   async spawnProcess(
