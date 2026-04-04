@@ -1,3 +1,4 @@
+export * from "./gates/command-gate.js";
 export * from "./gates/typecheck-gate.js";
 export * from "./gates/lint-gate.js";
 export * from "./gates/test-gate.js";

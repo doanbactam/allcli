@@ -33,23 +33,27 @@ class LongRunningProvider extends BaseProvider {
 describe("provider process lifecycle", () => {
   it("captures stdout output and exits cleanly", async () => {
     const provider = new NodeFixtureProvider();
+
+    let outputResolve!: (value: string) => void;
+    const outputPromise = new Promise<string>((resolve) => { outputResolve = resolve; });
+
     const handle = await provider.spawn({
       prompt: "hello from provider",
       cwd: process.cwd()
+    }, {
+      onStdout: (text) => { outputResolve(text); }
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 120));
-    const output = await provider.getOutput(handle);
+    const output = await outputPromise;
     expect(output).toContain("hello from provider");
 
-    let alive = await provider.isAlive(handle);
-    const deadline = Date.now() + 700;
-    while (alive && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 25));
-      alive = await provider.isAlive(handle);
+    // Wait for process to exit (event-driven polling)
+    const deadline = Date.now() + 2000;
+    while (await provider.isAlive(handle) && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 50));
     }
 
-    expect(alive).toBe(false);
+    expect(await provider.isAlive(handle)).toBe(false);
   });
 
   it("can destroy an active process", async () => {
