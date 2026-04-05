@@ -91,25 +91,86 @@ export interface ApiStatus {
     stuck: number;
   };
   provider: string;
+  repoId?: string;
+}
+
+export interface ApiRepoSummary {
+  id: string;
+  name: string;
+  rootPath: string;
+  isDefault: boolean;
+  provider: string;
+  totalSessions: number;
+  activeSessions: number;
+  erroredSessions: number;
+  taskCount: number;
+  addedAt: string;
+  lastOpenedAt: string;
+}
+
+export interface ApiFileEntry {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  size: number;
+}
+
+export interface ApiFileDirectorySnapshot {
+  path: string;
+  entries: ApiFileEntry[];
+}
+
+export interface ApiFilePreview {
+  path: string;
+  content: string;
+  isBinary: boolean;
+  truncated: boolean;
+  size: number;
+}
+
+export interface ApiVerifySummary {
+  workspace: {
+    rootPath: string;
+    mode: "default" | "worktree";
+    worktreeId?: string;
+  };
+  results: Array<{
+    passed: boolean;
+    gate: "typecheck" | "lint" | "test" | "build";
+    output?: string;
+    duration: number;
+  }>;
+  allPassed: boolean;
+  totalDuration: number;
 }
 
 // ── WebSocket event types ───────────────────────────────────────────────────
 
 export type WsEvent =
-  | { type: "session.transition"; payload: { sessionId: string; from: ApiSessionStatus; to: ApiSessionStatus } }
-  | { type: "session.updated"; payload: { record: ApiSession } }
-  | { type: "session.output"; payload: { sessionId: string; chunk: string } };
+  | { type: "session.transition"; repoId: string; payload: { sessionId: string; from: ApiSessionStatus; to: ApiSessionStatus } }
+  | { type: "session.updated"; repoId: string; payload: { record: ApiSession } }
+  | { type: "session.output"; repoId: string; payload: { sessionId: string; chunk: string } };
 
 // ── Fetch helpers ───────────────────────────────────────────────────────────
 
 const API_BASE = "/api";
 
-async function fetchJson<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`);
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
   if (!res.ok) {
     throw new Error(`API ${path}: ${res.status} ${res.statusText}`);
   }
   return res.json() as Promise<T>;
+}
+
+async function fetchJson<T>(path: string): Promise<T> {
+  return requestJson<T>(path);
 }
 
 export const api = {
@@ -118,4 +179,53 @@ export const api = {
   tasks: () => fetchJson<ApiTask[]>("/tasks"),
   worktrees: () => fetchJson<ApiWorktree[]>("/worktrees"),
   inbox: () => fetchJson<ApiInboxMessage[]>("/inbox"),
+  repos: () => fetchJson<ApiRepoSummary[]>("/repos"),
+  addRepo: (path: string) =>
+    requestJson<ApiRepoSummary>("/repos", {
+      method: "POST",
+      body: JSON.stringify({ path }),
+    }),
+  removeRepo: (repoId: string) =>
+    requestJson<{ ok: true }>(`/repos/${repoId}`, {
+      method: "DELETE",
+    }),
+  repoStatus: (repoId: string) => fetchJson<ApiStatus>(`/repos/${repoId}/status`),
+  repoSessions: (repoId: string) => fetchJson<ApiSession[]>(`/repos/${repoId}/sessions`),
+  killRepoSession: (repoId: string, sessionId: string) =>
+    requestJson<{ ok: true }>(`/repos/${repoId}/sessions/${encodeURIComponent(sessionId)}/kill`, {
+      method: "POST",
+    }),
+  repoTasks: (repoId: string) => fetchJson<ApiTask[]>(`/repos/${repoId}/tasks`),
+  createRepoTask: (
+    repoId: string,
+    payload: { title: string; description?: string; priority?: number; blockedBy?: string[]; acceptanceCriteria?: string[] }
+  ) =>
+    requestJson<ApiTask>(`/repos/${repoId}/tasks`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  repoWorktrees: (repoId: string) => fetchJson<ApiWorktree[]>(`/repos/${repoId}/worktrees`),
+  createRepoWorktree: (repoId: string, name: string) =>
+    requestJson<ApiWorktree>(`/repos/${repoId}/worktrees`, {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+  repoFiles: (repoId: string, path: string) =>
+    fetchJson<ApiFileDirectorySnapshot>(`/repos/${repoId}/files?path=${encodeURIComponent(path)}`),
+  repoFile: (repoId: string, path: string) =>
+    fetchJson<ApiFilePreview>(`/repos/${repoId}/file?path=${encodeURIComponent(path)}`),
+  runRepoPrompt: (repoId: string, task: string) =>
+    requestJson<ApiSession>(`/repos/${repoId}/run`, {
+      method: "POST",
+      body: JSON.stringify({ task }),
+    }),
+  spawnRepoAgent: (repoId: string, payload: { role: string; task?: string }) =>
+    requestJson<ApiSession>(`/repos/${repoId}/agent`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  verifyRepo: (repoId: string) =>
+    requestJson<ApiVerifySummary>(`/repos/${repoId}/verify`, {
+      method: "POST",
+    }),
 } as const;

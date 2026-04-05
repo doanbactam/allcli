@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { SessionRecord } from "@allcli/core";
+import { atomicWrite } from "@allcli/core";
 
 export class SessionStore {
   constructor(private readonly stateFilePath: string) {}
@@ -24,8 +25,6 @@ export class SessionStore {
   }
 
   save(records: SessionRecord[]): void {
-    const absolute = resolve(this.stateFilePath);
-    mkdirSync(dirname(absolute), { recursive: true });
-    writeFileSync(absolute, JSON.stringify(records, null, 2));
+    atomicWrite(this.stateFilePath, JSON.stringify(records, null, 2));
   }
 }

@@ -3,7 +3,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, resolve } from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { CliContext } from "./commands/context.js";
-import type { EventMap } from "@allcli/core";
+import { RepoHub } from "./repo-hub.js";
 
 type JsonBody = Record<string, unknown>;
 
@@ -49,6 +49,7 @@ export class ApiServer {
   private readonly server: Server;
   private readonly wss: WebSocketServer;
   private readonly clients = new Set<WebSocket>();
+  private readonly repoHub: RepoHub;
 
   constructor(
     private readonly context: CliContext,
@@ -57,13 +58,12 @@ export class ApiServer {
   ) {
     this.server = createServer((req, res) => this.handleRequest(req, res));
     this.wss = new WebSocketServer({ server: this.server });
+    this.repoHub = new RepoHub(context.cwd, (message) => this.broadcast(message));
 
     this.wss.on("connection", (ws: WebSocket) => {
       this.clients.add(ws);
       ws.on("close", () => this.clients.delete(ws));
     });
-
-    this.subscribeToEvents();
   }
 
   start(): Promise<void> {
@@ -86,30 +86,25 @@ export class ApiServer {
 
     return new Promise((resolve, reject) => {
       this.wss.close((err?: Error) => {
-        if (err) reject(err);
-        else resolve();
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        this.server.close((serverError) => {
+          if (serverError) {
+            reject(serverError);
+            return;
+          }
+
+          resolve();
+        });
       });
     });
   }
 
   get address(): string {
     return `http://localhost:${this.port}`;
-  }
-
-  private subscribeToEvents(): void {
-    const bus = this.context.manager.events;
-
-    bus.on("session.transition", (payload: EventMap["session.transition"]) => {
-      this.broadcast({ type: "session.transition", payload });
-    });
-
-    bus.on("session.updated", (payload: EventMap["session.updated"]) => {
-      this.broadcast({ type: "session.updated", payload });
-    });
-
-    bus.on("session.output", (payload: EventMap["session.output"]) => {
-      this.broadcast({ type: "session.output", payload });
-    });
   }
 
   private broadcast(message: unknown): void {
@@ -128,7 +123,7 @@ export class ApiServer {
     // API routes
     if (pathname.startsWith("/api/")) {
       try {
-        await this.handleApiRoute(req, res, pathname);
+        await this.handleApiRoute(req, res, url);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Internal server error";
         jsonResponse(res, { error: message }, 500);
@@ -149,66 +144,75 @@ export class ApiServer {
   private async handleApiRoute(
     req: IncomingMessage,
     res: ServerResponse,
-    pathname: string
+    url: URL
   ): Promise<void> {
+    const pathname = url.pathname;
     const method = req.method ?? "GET";
+    const defaultRepoId = this.repoHub.defaultRepoId;
+
+    if (pathname === "/api/repos" && method === "GET") {
+      jsonResponse(res, this.repoHub.listRepos());
+      return;
+    }
+
+    if (pathname === "/api/repos" && method === "POST") {
+      const body = await parseJsonBody(req);
+      const path = body?.["path"];
+      if (typeof path !== "string" || !path.trim()) {
+        jsonResponse(res, { error: "path is required" }, 400);
+        return;
+      }
+
+      jsonResponse(res, this.repoHub.addRepo(path.trim()), 201);
+      return;
+    }
+
+    const repoRoute = this.matchRepoRoute(pathname);
+    if (repoRoute) {
+      await this.handleRepoRoute(req, res, repoRoute.repoId, repoRoute.remainder, url);
+      return;
+    }
 
     // GET /api/status
     if (pathname === "/api/status" && method === "GET") {
-      const status = this.context.manager.status();
-      const config = this.context.config;
+      const repoContext = this.repoHub.getContext(defaultRepoId);
       jsonResponse(res, {
-        status,
-        provider: this.context.providerName,
-        workspace: config.workspace,
-        orchestrator: config.orchestrator,
+        status: this.repoHub.getStatus(defaultRepoId),
+        provider: repoContext.providerName,
+        workspace: repoContext.config.workspace,
+        orchestrator: repoContext.config.orchestrator,
+        repoId: defaultRepoId
       });
       return;
     }
 
     // GET /api/sessions
     if (pathname === "/api/sessions" && method === "GET") {
-      const sessions = this.context.manager.list();
-      jsonResponse(res, sessions);
+      jsonResponse(res, this.repoHub.listSessions(defaultRepoId));
       return;
     }
 
     // GET /api/tasks
     if (pathname === "/api/tasks" && method === "GET") {
-      const tasks = this.context.taskTracker.list();
-      jsonResponse(res, tasks);
+      jsonResponse(res, this.repoHub.listTasks(defaultRepoId));
       return;
     }
 
     // POST /api/tasks
     if (pathname === "/api/tasks" && method === "POST") {
-      const body = await parseJsonBody(req);
-      const title = body?.["title"];
-      if (typeof title !== "string" || !title.trim()) {
-        jsonResponse(res, { error: "title is required" }, 400);
-        return;
-      }
-      const task = this.context.taskTracker.create(title, {
-        ...(typeof body?.["description"] === "string" ? { description: body["description"] } : {}),
-        ...(typeof body?.["priority"] === "number" ? { priority: body["priority"] } : {}),
-        ...(Array.isArray(body?.["blockedBy"]) ? { blockedBy: body["blockedBy"] as string[] } : {}),
-        ...(Array.isArray(body?.["acceptanceCriteria"]) ? { acceptanceCriteria: body["acceptanceCriteria"] as string[] } : {}),
-      });
-      jsonResponse(res, task, 201);
+      await this.handleTaskCreate(req, res, defaultRepoId);
       return;
     }
 
     // GET /api/worktrees
     if (pathname === "/api/worktrees" && method === "GET") {
-      const worktrees = await this.context.worktreeManager.list();
-      jsonResponse(res, worktrees);
+      jsonResponse(res, await this.repoHub.listWorktrees(defaultRepoId));
       return;
     }
 
     // GET /api/inbox
     if (pathname === "/api/inbox" && method === "GET") {
-      const allMessages = await this.context.inbox.peek("*");
-      jsonResponse(res, allMessages);
+      jsonResponse(res, await this.repoHub.listInbox(defaultRepoId));
       return;
     }
 
@@ -253,5 +257,178 @@ export class ApiServer {
     } catch {
       jsonResponse(res, { error: "Failed to read file" }, 500);
     }
+  }
+
+  private async handleRepoRoute(
+    req: IncomingMessage,
+    res: ServerResponse,
+    repoId: string,
+    remainder: string,
+    url: URL
+  ): Promise<void> {
+    const method = req.method ?? "GET";
+
+    if (!remainder && method === "GET") {
+      const repo = this.repoHub.listRepos().find((item) => item.id === repoId);
+      if (!repo) {
+        jsonResponse(res, { error: "Repository not found" }, 404);
+        return;
+      }
+
+      jsonResponse(res, repo);
+      return;
+    }
+
+    if (!remainder && method === "DELETE") {
+      const repo = this.repoHub.listRepos().find((item) => item.id === repoId);
+      if (!repo) {
+        jsonResponse(res, { error: "Repository not found" }, 404);
+        return;
+      }
+
+      try {
+        this.repoHub.removeRepo(repoId);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to remove repository";
+        jsonResponse(res, { error: message }, message.includes("default repository") ? 400 : 500);
+        return;
+      }
+
+      jsonResponse(res, { ok: true });
+      return;
+    }
+
+    if (remainder === "status" && method === "GET") {
+      const context = this.repoHub.getContext(repoId);
+      jsonResponse(res, {
+        status: this.repoHub.getStatus(repoId),
+        provider: context.providerName,
+        workspace: context.config.workspace,
+        orchestrator: context.config.orchestrator,
+        repoId
+      });
+      return;
+    }
+
+    if (remainder === "sessions" && method === "GET") {
+      jsonResponse(res, this.repoHub.listSessions(repoId));
+      return;
+    }
+
+    if (remainder.startsWith("sessions/") && remainder.endsWith("/kill") && method === "POST") {
+      const sessionId = decodeURIComponent(remainder.slice("sessions/".length, -"/kill".length));
+      await this.repoHub.killSession(repoId, sessionId);
+      jsonResponse(res, { ok: true });
+      return;
+    }
+
+    if (remainder === "tasks" && method === "GET") {
+      jsonResponse(res, this.repoHub.listTasks(repoId));
+      return;
+    }
+
+    if (remainder === "tasks" && method === "POST") {
+      await this.handleTaskCreate(req, res, repoId);
+      return;
+    }
+
+    if (remainder === "worktrees" && method === "GET") {
+      jsonResponse(res, await this.repoHub.listWorktrees(repoId));
+      return;
+    }
+
+    if (remainder === "worktrees" && method === "POST") {
+      const body = await parseJsonBody(req);
+      const name = body?.["name"];
+      if (typeof name !== "string" || !name.trim()) {
+        jsonResponse(res, { error: "name is required" }, 400);
+        return;
+      }
+
+      jsonResponse(res, await this.repoHub.createWorktree(repoId, name.trim()), 201);
+      return;
+    }
+
+    if (remainder === "files" && method === "GET") {
+      const path = url.searchParams.get("path") ?? "";
+      jsonResponse(res, await this.repoHub.listFiles(repoId, path));
+      return;
+    }
+
+    if (remainder === "file" && method === "GET") {
+      const path = url.searchParams.get("path");
+      if (!path) {
+        jsonResponse(res, { error: "path is required" }, 400);
+        return;
+      }
+
+      jsonResponse(res, await this.repoHub.readFile(repoId, path));
+      return;
+    }
+
+    if (remainder === "run" && method === "POST") {
+      const body = await parseJsonBody(req);
+      const task = body?.["task"];
+      if (typeof task !== "string" || !task.trim()) {
+        jsonResponse(res, { error: "task is required" }, 400);
+        return;
+      }
+
+      jsonResponse(res, await this.repoHub.runPrompt(repoId, task.trim()), 201);
+      return;
+    }
+
+    if (remainder === "agent" && method === "POST") {
+      const body = await parseJsonBody(req);
+      const role = typeof body?.["role"] === "string" ? body["role"].trim() : "general";
+      const task = typeof body?.["task"] === "string" ? body["task"].trim() : undefined;
+      jsonResponse(res, await this.repoHub.spawnAgent(repoId, role, task), 201);
+      return;
+    }
+
+    if (remainder === "verify" && method === "POST") {
+      jsonResponse(res, await this.repoHub.verify(repoId));
+      return;
+    }
+
+    if (remainder === "inbox" && method === "GET") {
+      jsonResponse(res, await this.repoHub.listInbox(repoId));
+      return;
+    }
+
+    jsonResponse(res, { error: "Not found" }, 404);
+  }
+
+  private async handleTaskCreate(req: IncomingMessage, res: ServerResponse, repoId: string): Promise<void> {
+    const body = await parseJsonBody(req);
+    const title = body?.["title"];
+    if (typeof title !== "string" || !title.trim()) {
+      jsonResponse(res, { error: "title is required" }, 400);
+      return;
+    }
+
+    jsonResponse(
+      res,
+      this.repoHub.createTask(repoId, {
+        title: title.trim(),
+        ...(typeof body?.["description"] === "string" ? { description: body["description"] } : {}),
+        ...(typeof body?.["priority"] === "number" ? { priority: body["priority"] } : {}),
+        ...(Array.isArray(body?.["blockedBy"]) ? { blockedBy: body["blockedBy"] as string[] } : {}),
+        ...(Array.isArray(body?.["acceptanceCriteria"]) ? { acceptanceCriteria: body["acceptanceCriteria"] as string[] } : {})
+      }),
+      201
+    );
+  }
+
+  private matchRepoRoute(pathname: string): { repoId: string; remainder: string } | null {
+    const match = pathname.match(/^\/api\/repos\/([^/]+)(?:\/(.*))?$/);
+    if (!match) {
+      return null;
+    }
+
+    return {
+      repoId: decodeURIComponent(match[1] ?? ""),
+      remainder: match[2] ?? ""
+    };
   }
 }

@@ -21,6 +21,34 @@ export interface CleanupResult {
   dryRun: boolean;
 }
 
+export interface RepoWorkspace {
+  id: string;
+  name: string;
+  rootPath: string;
+  addedAt: string;
+  lastOpenedAt: string;
+}
+
+export interface FileEntry {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  size: number;
+}
+
+export interface FileDirectorySnapshot {
+  path: string;
+  entries: FileEntry[];
+}
+
+export interface FilePreview {
+  path: string;
+  content: string;
+  isBinary: boolean;
+  truncated: boolean;
+  size: number;
+}
+
 export interface Task {
   id: string;
   title: string;

@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
+import { atomicWrite } from "@allcli/core";
 import type { CleanupResult, CreateWorktreeOptions, Worktree } from "./types.js";
 
 interface StoredWorktree {
@@ -246,9 +247,7 @@ export class WorktreeManager {
   }
 
   private saveRecords(records: StoredWorktree[]): void {
-    const absolute = resolve(this.stateFilePath);
-    mkdirSync(dirname(absolute), { recursive: true });
-    writeFileSync(absolute, JSON.stringify(records, null, 2));
+    atomicWrite(this.stateFilePath, JSON.stringify(records, null, 2));
   }
 }
 

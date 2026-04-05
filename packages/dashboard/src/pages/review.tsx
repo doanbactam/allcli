@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { DiffEditor } from "@monaco-editor/react";
 import { api, type ApiTask } from "@/lib/api-client";
 import { useApiData } from "@/hooks/use-api-data";
 
@@ -56,35 +57,45 @@ export function ReviewPage() {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-2">
               <h2 className="text-sm font-medium text-muted-foreground">Output</h2>
-              <textarea
-                readOnly
-                value={task.result.output ?? task.result.error ?? "No output captured"}
-                className="h-56 resize-none rounded-lg border border-border bg-background p-3 font-mono text-sm"
-              />
+              <div className="h-72 overflow-hidden rounded-lg border border-border">
+                <DiffEditor
+                  original={`// Task: ${task.title}\n// Agent: ${task.assignedAgent ?? "Unassigned"}\n// Status: ${task.result.success ? "SUCCESS" : "FAILED"}`}
+                  modified={task.result.output ?? task.result.error ?? "No output captured"}
+                  language="typescript"
+                  theme="vs-dark"
+                  options={{
+                    readOnly: true,
+                    renderSideBySide: false,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    fontSize: 13,
+                    lineNumbers: "off",
+                    folding: false,
+                    overviewRulerBorder: false,
+                  }}
+                />
+              </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <h2 className="text-sm font-medium text-muted-foreground">Details</h2>
-              <div className="flex flex-col gap-2 rounded-lg border border-border bg-background p-3 text-sm">
-                <p>
-                  <span className="text-muted-foreground">Duration:</span>{" "}
-                  <span className="font-medium tabular-nums">{task.result.duration}ms</span>
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Tokens used:</span>{" "}
-                  <span className="font-medium tabular-nums">{task.result.tokensUsed}</span>
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Agent:</span>{" "}
-                  <span className="font-medium">{task.assignedAgent ?? "Unassigned"}</span>
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Completed:</span>{" "}
-                  <span className="font-medium">{new Date(task.updatedAt).toLocaleString()}</span>
-                </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="text-xs text-muted-foreground">Duration</p>
+                <p className="font-medium tabular-nums text-sm">{task.result.duration}ms</p>
+              </div>
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="text-xs text-muted-foreground">Tokens</p>
+                <p className="font-medium tabular-nums text-sm">{task.result.tokensUsed}</p>
+              </div>
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="text-xs text-muted-foreground">Agent</p>
+                <p className="font-medium text-sm">{task.assignedAgent ?? "Unassigned"}</p>
+              </div>
+              <div className="rounded-lg border border-border bg-background px-3 py-2">
+                <p className="text-xs text-muted-foreground">Completed</p>
+                <p className="font-medium text-sm">{new Date(task.updatedAt).toLocaleTimeString()}</p>
               </div>
             </div>
           </div>

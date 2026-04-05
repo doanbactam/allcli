@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { InboxMessage } from "./types.js";
+import { atomicWrite } from "@allcli/core";
 
 export class Inbox {
   constructor(
@@ -97,8 +98,6 @@ export class Inbox {
   }
 
   private saveMessages(messages: InboxMessage[]): void {
-    const absolute = resolve(this.stateFilePath);
-    mkdirSync(dirname(absolute), { recursive: true });
-    writeFileSync(absolute, JSON.stringify(messages, null, 2));
+    atomicWrite(this.stateFilePath, JSON.stringify(messages, null, 2));
   }
 }

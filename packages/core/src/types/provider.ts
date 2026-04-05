@@ -28,6 +28,7 @@ export interface SpawnEvents {
   onStderr?: (chunk: string) => void;
   onExit?: (code: number | null, signal: string | null) => void;
   onError?: (error: Error) => void;
+  onTimeout?: () => void;
 }
 
 export interface Provider {

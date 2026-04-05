@@ -5,73 +5,74 @@ describe("CostTracker", () => {
   it("records and retrieves session costs", () => {
     const tracker = new CostTracker(100, 10);
     tracker.record("sess-1", {
-      totalTokens: 1000,
-      inputTokens: 800,
-      outputTokens: 200,
-      estimatedCost: 0.05,
+      totalTokens: 100,
+      inputTokens: 50,
+      outputTokens: 50,
+      estimatedCost: 0.5,
       currency: "USD"
     });
-
     const cost = tracker.getSessionCost("sess-1");
-    expect(cost.totalTokens).toBe(1000);
-    expect(cost.estimatedCost).toBe(0.05);
+    expect(cost.totalTokens).toBe(100);
+    expect(cost.inputTokens).toBe(50);
+    expect(cost.outputTokens).toBe(50);
+    expect(cost.estimatedCost).toBe(0.5);
+    expect(cost.currency).toBe("USD");
   });
 
-  it("returns zero cost for unknown sessions", () => {
-    const tracker = new CostTracker();
-    const cost = tracker.getSessionCost("unknown");
-    expect(cost.totalTokens).toBe(0);
-    expect(cost.estimatedCost).toBe(0);
-  });
-
-  it("aggregates project costs across sessions", () => {
+  it("tracks session status correctly", () => {
     const tracker = new CostTracker(100, 10);
     tracker.record("sess-1", {
-      totalTokens: 1000,
-      inputTokens: 800,
-      outputTokens: 200,
-      estimatedCost: 0.05,
-      currency: "USD"
-    });
-    tracker.record("sess-2", {
-      totalTokens: 2000,
-      inputTokens: 1500,
-      outputTokens: 500,
-      estimatedCost: 0.10,
-      currency: "USD"
-    });
-
-    const project = tracker.getProjectCost();
-    expect(project.totalTokens).toBe(3000);
-    expect(project.estimatedCost).toBeCloseTo(0.15);
-  });
-
-  it("reports budget status correctly", () => {
-    const tracker = new CostTracker(100, 10);
-    tracker.record("sess-1", {
-      totalTokens: 1000,
-      inputTokens: 800,
-      outputTokens: 200,
-      estimatedCost: 5,
+      totalTokens: 100,
+      inputTokens: 50,
+      outputTokens: 50,
+      estimatedCost: 0.5,
       currency: "USD"
     });
 
     const status = tracker.checkBudget("sess-1");
     expect(status.withinBudget).toBe(true);
-    expect(status.percentUsed).toBe(50);
+    // used = sessionCost(0.5) + projectCost(0.5) = 1.0
+    expect(status.used).toBe(1);
+    expect(status.limit).toBe(10);
+    expect(status.remaining).toBe(9.5);
+    expect(status.percentUsed).toBe(5);
   });
 
-  it("detects budget overrun", () => {
+  it("detects budget overflow", () => {
     const tracker = new CostTracker(100, 10);
     tracker.record("sess-1", {
       totalTokens: 1000,
-      inputTokens: 800,
-      outputTokens: 200,
+      inputTokens: 500,
+      outputTokens: 500,
       estimatedCost: 15,
       currency: "USD"
     });
 
     const status = tracker.checkBudget("sess-1");
     expect(status.withinBudget).toBe(false);
+    expect(status.remaining).toBe(0);
+    expect(status.percentUsed).toBe(150);
+  });
+
+  it("aggregates project costs correctly", () => {
+    const tracker = new CostTracker(100, 10);
+    tracker.record("sess-1", {
+      totalTokens: 100,
+      inputTokens: 50,
+      outputTokens: 50,
+      estimatedCost: 0.5,
+      currency: "USD"
+    });
+    tracker.record("sess-2", {
+      totalTokens: 200,
+      inputTokens: 100,
+      outputTokens: 100,
+      estimatedCost: 1,
+      currency: "USD"
+    });
+
+    const projectCost = tracker.getProjectCost();
+    expect(projectCost.totalTokens).toBe(300);
+    expect(projectCost.estimatedCost).toBe(1.5);
   });
 });

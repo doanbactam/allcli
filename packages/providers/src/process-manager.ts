@@ -30,7 +30,8 @@ export class ProcessManager {
     command: string,
     args: readonly string[],
     cwd: string,
-    events?: SpawnEvents
+    events?: SpawnEvents,
+    timeoutMs?: number
   ): Promise<ProviderHandle> {
     return new Promise<ProviderHandle>((resolve, reject) => {
       const executable = this.normalizeCommand(command);
@@ -100,6 +101,23 @@ export class ProcessManager {
         managed.activityState.status = "idle";
         events?.onExit?.(code, signal);
       });
+
+      // Timeout handling: kill process after specified duration
+      if (timeoutMs !== undefined) {
+        const timer = setTimeout(() => {
+          if (!settled && !managed.child.killed) {
+            managed.child.kill("SIGTERM");
+            events?.onTimeout?.();
+            if (!settled) {
+              settled = true;
+              reject(new Error(`Process timed out after ${timeoutMs}ms`));
+            }
+          }
+        }, timeoutMs);
+
+        child.once("exit", () => clearTimeout(timer));
+        child.once("error", () => clearTimeout(timer));
+      }
     });
   }
 

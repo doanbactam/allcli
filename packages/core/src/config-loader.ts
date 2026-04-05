@@ -75,7 +75,7 @@ const configSchema = z.object({
       gates: ["typecheck", "lint", "test", "build"],
       costLimit: { perSession: 10, perProject: 100 }
     })
-});
+}).strict();
 
 export function loadConfig(cwd: string = process.cwd()): AllCliConfig {
   const configPath = join(cwd, "allcli.yaml");

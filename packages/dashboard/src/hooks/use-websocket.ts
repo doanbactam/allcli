@@ -26,6 +26,7 @@ export function useWebSocket(options?: UseWebSocketOptions): UseWebSocketResult 
   const [lastEvent, setLastEvent] = useState<WsEvent | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const onEventRef = useRef(onEvent);
+  const shouldReconnectRef = useRef(true);
   onEventRef.current = onEvent;
 
   const connect = useCallback(() => {
@@ -40,8 +41,9 @@ export function useWebSocket(options?: UseWebSocketOptions): UseWebSocketResult 
 
     ws.onclose = () => {
       setStatus("disconnected");
-      // Auto-reconnect
-      setTimeout(connect, reconnectInterval);
+      if (shouldReconnectRef.current) {
+        setTimeout(connect, reconnectInterval);
+      }
     };
 
     ws.onerror = () => {
@@ -62,8 +64,10 @@ export function useWebSocket(options?: UseWebSocketOptions): UseWebSocketResult 
   }, [reconnectInterval]);
 
   useEffect(() => {
+    shouldReconnectRef.current = true;
     connect();
     return () => {
+      shouldReconnectRef.current = false;
       wsRef.current?.close();
     };
   }, [connect]);

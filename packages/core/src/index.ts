@@ -8,3 +8,4 @@ export * from "./types/verification.js";
 export * from "./config-loader.js";
 export * from "./event-bus.js";
 export * from "./plugin-registry.js";
+export * from "./atomic-write.js";

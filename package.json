@@ -10,6 +10,7 @@
     }
   },
   "scripts": {
+    "allcli": "node packages/cli/dist/index.js",
     "build": "tsc -b",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint . --ext .ts,.tsx",
