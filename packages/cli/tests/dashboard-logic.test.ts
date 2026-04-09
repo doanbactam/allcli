@@ -4,9 +4,12 @@ import type { Task } from "@allcli/workspace";
 import {
   canAssignTask,
   canDecomposeTask,
+  canExecuteTask,
   getAssignableSessions,
+  getAllowedTaskStatuses,
   nextAssignedTaskStatus,
   normalizeTaskTitle,
+  normalizeWorktreeName,
 } from "../src/tui/dashboard-logic";
 
 function makeSession(overrides: Partial<SessionRecord>): SessionRecord {
@@ -83,5 +86,36 @@ describe("dashboard logic", () => {
 
   it("normalizes task titles from free-form input", () => {
     expect(normalizeTaskTitle("  fix   dashboard   logic  ")).toBe("fix dashboard logic");
+  });
+
+  it("limits editable task statuses to coherent transitions", () => {
+    expect(getAllowedTaskStatuses(makeTask({ status: "pending" }))).toEqual([
+      "pending",
+      "in_progress",
+      "blocked",
+      "failed",
+    ]);
+    expect(getAllowedTaskStatuses(makeTask({ status: "completed" }))).toEqual(["completed"]);
+  });
+
+  it("blocks execution for completed, failed, and blocked tasks", () => {
+    expect(canExecuteTask(makeTask({ status: "completed" }))).toEqual({
+      ok: false,
+      reason: "Completed tasks cannot be executed again",
+    });
+    expect(canExecuteTask(makeTask({ status: "failed" }))).toEqual({
+      ok: false,
+      reason: "Failed tasks must be reopened before execution",
+    });
+    expect(canExecuteTask(makeTask({ status: "blocked", blockedBy: ["x"] }))).toEqual({
+      ok: false,
+      reason: "Blocked tasks cannot execute until dependencies clear",
+    });
+    expect(canExecuteTask(makeTask({ status: "pending" }))).toEqual({ ok: true });
+  });
+
+  it("normalizes worktree names into git-friendly slugs", () => {
+    expect(normalizeWorktreeName("  Feature Branch / Fix Header  ")).toBe("feature-branch-/-fix-header");
+    expect(normalizeWorktreeName("")).toBe("");
   });
 });

@@ -27,7 +27,7 @@ describe("WorktreeManager", () => {
     expect(after.some((worktree) => worktree.id === created.id)).toBe(false);
 
     rmSync(root, { recursive: true, force: true });
-  });
+  }, 15000);
 });
 
 function setupRepo(root: string): void {

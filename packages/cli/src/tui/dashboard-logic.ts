@@ -89,3 +89,51 @@ export function canDecomposeTask(task: Task, allTasks: Task[]): { ok: boolean; r
 export function normalizeTaskTitle(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
+
+export const EDITABLE_TASK_STATUSES: readonly Task["status"][] = [
+  "pending",
+  "in_progress",
+  "blocked",
+  "failed",
+  "completed",
+];
+
+export function getAllowedTaskStatuses(task: Task): readonly Task["status"][] {
+  switch (task.status) {
+    case "pending":
+      return ["pending", "in_progress", "blocked", "failed"];
+    case "in_progress":
+      return ["in_progress", "blocked", "completed", "failed", "pending"];
+    case "blocked":
+      return ["blocked", "pending", "in_progress", "failed"];
+    case "failed":
+      return ["failed", "pending", "in_progress", "blocked"];
+    case "completed":
+      return ["completed"];
+  }
+}
+
+export function canExecuteTask(task: Task): { ok: boolean; reason?: string } {
+  if (task.status === "completed") {
+    return { ok: false, reason: "Completed tasks cannot be executed again" };
+  }
+
+  if (task.status === "failed") {
+    return { ok: false, reason: "Failed tasks must be reopened before execution" };
+  }
+
+  if (task.status === "blocked" || (task.status === "pending" && task.blockedBy.length > 0)) {
+    return { ok: false, reason: "Blocked tasks cannot execute until dependencies clear" };
+  }
+
+  return { ok: true };
+}
+
+export function normalizeWorktreeName(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9/_-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-/]+|[-/]+$/g, "");
+}
