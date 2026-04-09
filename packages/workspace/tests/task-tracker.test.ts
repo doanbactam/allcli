@@ -28,7 +28,7 @@ describe("TaskTracker", () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it("decomposes a parent task into blocked subtasks", () => {
+  it("decomposes a parent task into executable subtasks and blocks the parent on them", () => {
     const root = mkdtempSync(join(tmpdir(), "allcli-task-decompose-"));
     const tracker = new TaskTracker(root);
 
@@ -39,10 +39,17 @@ describe("TaskTracker", () => {
     ]);
 
     expect(subtasks).toHaveLength(2);
-    expect(subtasks.every((task) => task.blockedBy.includes(parent.id))).toBe(true);
+    expect(subtasks.every((task) => task.blockedBy.length === 0)).toBe(true);
+
+    const updatedParent = tracker.getById(parent.id);
+    expect(updatedParent?.status).toBe("blocked");
+    expect(updatedParent?.blockedBy).toEqual(subtasks.map((task) => task.id));
 
     const pending = tracker.list({ status: "pending" });
-    expect(pending).toHaveLength(3);
+    expect(pending).toHaveLength(2);
+
+    const blocked = tracker.list({ status: "blocked" });
+    expect(blocked.map((task) => task.id)).toContain(parent.id);
 
     rmSync(root, { recursive: true, force: true });
   });

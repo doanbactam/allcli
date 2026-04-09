@@ -90,21 +90,40 @@ export class TaskTracker {
     parentId: string,
     subtasks: Array<{ title: string; description?: string; priority?: number }>
   ): Task[] {
-    const parent = this.getById(parentId);
-    if (!parent) {
+    const tasks = this.store.load();
+    const index = tasks.findIndex((task) => task.id === parentId || task.id.startsWith(parentId));
+    if (index < 0) {
       throw new Error(`Task not found: ${parentId}`);
     }
+    const parent = tasks[index] as Task;
 
     const created: Task[] = [];
+    const inheritedDependencies = [...parent.blockedBy];
     for (const subtask of subtasks) {
-      created.push(
-        this.create(subtask.title, {
-          ...(subtask.description ? { description: subtask.description } : {}),
-          ...(subtask.priority !== undefined ? { priority: subtask.priority } : {}),
-          blockedBy: [parentId]
-        })
-      );
+      const now = new Date().toISOString();
+      created.push({
+        id: randomUUID(),
+        title: subtask.title,
+        description: subtask.description ?? "",
+        status: inheritedDependencies.length > 0 ? "blocked" : "pending",
+        priority: subtask.priority ?? 0,
+        blockedBy: inheritedDependencies,
+        acceptanceCriteria: [],
+        createdAt: now,
+        updatedAt: now
+      });
     }
+
+    const nextParentDependencies = created.map((task) => task.id);
+    const currentParentStatus = parent.status === "completed" ? "completed" : "blocked";
+    tasks[index] = {
+      ...parent,
+      status: currentParentStatus,
+      blockedBy: nextParentDependencies,
+      updatedAt: new Date().toISOString()
+    };
+    tasks.push(...created);
+    this.store.save(tasks);
 
     return created;
   }

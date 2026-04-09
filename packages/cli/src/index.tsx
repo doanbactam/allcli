@@ -160,12 +160,14 @@ program
 
 program
   .command("dashboard")
-  .description("Start the web dashboard with API server")
+  .description("Start the terminal dashboard app")
   .option("-p, --port <number>", "API server port", "3000")
+  .option("--web", "Start the web dashboard/API server instead of the terminal app")
   .option("--dev", "Start Vite dev server alongside API (for development)")
-  .action(async (opts: { port?: string; dev?: boolean }) => {
+  .action(async (opts: { port?: string; dev?: boolean; web?: boolean }) => {
     await startDashboard(process.cwd(), {
       ...(opts.port ? { port: parseInt(opts.port, 10) } : {}),
+      ...(opts.web ? { web: true } : {}),
       ...(opts.dev ? { dev: true } : {}),
     });
   });

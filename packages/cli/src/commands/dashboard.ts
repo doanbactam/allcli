@@ -1,9 +1,12 @@
+import React from "react";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { render } from "ink";
 import { ApiServer } from "../api-server.js";
 import { createCliContext } from "./context.js";
+import { DashboardApp } from "../tui/DashboardApp.js";
 
 const DEFAULT_PORT = 3000;
 
@@ -14,8 +17,14 @@ const DASHBOARD_DIST = resolve(cliDir, "../../../dashboard/dist");
 
 export async function startDashboard(
   cwd: string,
-  options?: { port?: number; dev?: boolean }
+  options?: { port?: number; dev?: boolean; web?: boolean }
 ): Promise<void> {
+  if (!options?.web && !options?.dev) {
+    const context = createCliContext(cwd);
+    render(React.createElement(DashboardApp, { context }));
+    return;
+  }
+
   const port = options?.port ?? DEFAULT_PORT;
   const dev = options?.dev ?? false;
   const context = createCliContext(cwd);
